@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# PyInstaller output
+build/
+dist/
+# Any alternate output directory - building to one of these is how a rebuild
+# is done while the previous executable is still running.
+dist-*/
+*.spec.bak
+
+# Recorded logs. The CSV files this application writes are measurements, not
+# source: a session belongs wherever the survey data goes, and a repository
+# that accumulated them would grow without limit.
+logs/
+
+# Editor/OS
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+.DS_Store

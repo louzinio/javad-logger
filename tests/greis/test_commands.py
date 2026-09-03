@@ -1,0 +1,157 @@
+"""Unit tests for the GREIS commands this application sends.
+
+These are string tests, and deliberately literal ones. The exact spelling
+of an ``em`` command is what was verified against real hardware in
+javad-udp-target, and it is also what somebody comparing a hex dump of a
+failing session against a known-good one will be reading. Asserting the
+whole command rather than its parts is the point: a change that turns
+``{1,0,0,0}`` into ``{1.0,0,0,0}`` still works on the receiver and still
+breaks that comparison, so it should fail here.
+
+The reply parsing is tested against the three things a serial port
+actually hands back - a real answer, an answer to a question the receiver
+did not understand, and a stream of binary that was never a reply at all.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from greis.commands import (
+    DISABLE_ALL,
+    QUERY_MODEL,
+    MessageRequest,
+    enable,
+    format_period,
+    parse_model_reply,
+    start_logging,
+    stop_logging,
+)
+
+
+# --- enabling one message -----------------------------------------------
+
+
+def test_enable_position_at_ten_milliseconds_is_the_hardware_verified_form():
+    assert enable("PG", 0.01) == "em,,/msg/jps/PG:{0.01,0,0,0}"
+
+
+def test_enable_at_one_second_writes_the_period_without_a_decimal_point():
+    assert enable("RD", 1.0) == "em,,/msg/jps/RD:{1,0,0,0}"
+
+
+def test_enable_puts_the_message_code_in_the_path_unchanged():
+    assert enable("NP", 5.0) == "em,,/msg/jps/NP:{5,0,0,0}"
+
+
+def test_enable_rejects_a_missing_message_code():
+    with pytest.raises(ValueError):
+        enable("", 1.0)
+
+
+def test_enable_rejects_a_period_that_is_not_positive():
+    with pytest.raises(ValueError):
+        enable("PG", 0.0)
+
+
+# --- periods ------------------------------------------------------------
+
+
+def test_format_period_keeps_a_sub_second_period_as_written():
+    assert format_period(0.01) == "0.01"
+    assert format_period(0.2) == "0.2"
+
+
+def test_format_period_drops_the_trailing_zero_of_a_whole_number():
+    assert format_period(1.0) == "1"
+    assert format_period(30.0) == "30"
+
+
+def test_format_period_rejects_zero():
+    # A period of zero would ask the receiver for a message every no time at
+    # all; GREIS has no such rate, and the mistake is worth catching before
+    # it reaches the port.
+    with pytest.raises(ValueError):
+        format_period(0)
+
+
+def test_format_period_rejects_a_negative_period():
+    with pytest.raises(ValueError):
+        format_period(-1.0)
+
+
+# --- whole sequences ----------------------------------------------------
+
+
+def test_start_logging_silences_the_receiver_before_enabling_anything():
+    commands = start_logging([MessageRequest("PG", 1.0)])
+    assert commands[0] == DISABLE_ALL == "dm"
+
+
+def test_start_logging_keeps_the_requested_messages_in_the_order_given():
+    commands = start_logging(
+        [MessageRequest("PG", 0.01), MessageRequest("VG", 1.0), MessageRequest("NP", 30.0)]
+    )
+    assert commands == [
+        "dm",
+        "em,,/msg/jps/PG:{0.01,0,0,0}",
+        "em,,/msg/jps/VG:{1,0,0,0}",
+        "em,,/msg/jps/NP:{30,0,0,0}",
+    ]
+
+
+def test_start_logging_accepts_a_tuple_of_requests_as_well_as_a_list():
+    assert start_logging((MessageRequest("PG", 1.0),)) == ["dm", "em,,/msg/jps/PG:{1,0,0,0}"]
+
+
+def test_start_logging_with_nothing_selected_is_just_the_silence_command():
+    assert start_logging([]) == ["dm"]
+
+
+def test_stop_logging_leaves_the_receiver_silent_rather_than_streaming():
+    assert stop_logging() == ["dm"]
+
+
+# --- the model reply ----------------------------------------------------
+
+
+def test_parse_model_reply_finds_the_name_in_a_realistic_reply():
+    # The receiver echoes the question before answering it, and the echo
+    # contains the parameter name without an "=", which is exactly the line
+    # the parser has to walk past.
+    reply = b"print,/par/rcv/model:on\r\nRE%tp%/par/rcv/model=TRIUMPH-2\r\n"
+    assert parse_model_reply(reply) == "TRIUMPH-2"
+
+
+def test_parse_model_reply_strips_the_quotes_a_receiver_may_put_round_it():
+    assert parse_model_reply('RE%tp%/par/rcv/model="TRIUMPH-LS"') == "TRIUMPH-LS"
+
+
+def test_parse_model_reply_accepts_text_as_well_as_bytes():
+    assert parse_model_reply("/par/rcv/model=DELTA-3") == "DELTA-3"
+
+
+def test_parse_model_reply_returns_none_when_the_parameter_is_absent():
+    # A receiver that does not know the parameter answers with an error
+    # rather than with a name, and an unknown model is not a reason to
+    # refuse to log.
+    assert parse_model_reply(b"RE%tp%ER0016@%tp%\r\n") is None
+
+
+def test_parse_model_reply_on_binary_noise_returns_none():
+    # What actually arrives when the question is asked of a port already
+    # streaming [PG] messages: the reply is drowned, and the bytes are not
+    # text at all.
+    assert parse_model_reply(bytes(range(256))) is None
+
+
+def test_parse_model_reply_on_an_empty_reply_returns_none():
+    assert parse_model_reply(b"") is None
+
+
+def test_parse_model_reply_returns_none_for_a_parameter_with_an_empty_value():
+    assert parse_model_reply("RE%tp%/par/rcv/model=") is None
+
+
+def test_query_model_asks_for_the_parameter_the_reply_parser_looks_for():
+    assert "/par/rcv/model" in QUERY_MODEL

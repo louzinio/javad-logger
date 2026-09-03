@@ -1,0 +1,22 @@
+# Javad Logger - runtime dependencies
+#
+# Keep this list minimal - any addition must be justified here.
+
+PySide6==6.8.3         # GUI framework. The window is the whole application:
+                       # the port sweep, the message catalogue and the run
+                       # controls have no other interface. Only gui/ imports
+                       # it - greis/, device/ and recording/ are deliberately
+                       # Qt-free so they can be tested without a
+                       # QApplication. Pinned exactly because a Qt minor
+                       # release moves widget behaviour, and this is the
+                       # version the window was laid out against.
+pyserial==3.5          # Serial port I/O and COM-port enumeration, which is
+                       # the only transport this application has. No viable
+                       # stdlib alternative on Windows, and enumeration is
+                       # what makes detection possible at all - without it
+                       # the operator would have to name the COM port.
+
+# Everything else is the standard library: csv writes the log, struct
+# unpacks the GREIS bodies, datetime stamps the rows. A logger that reaches
+# for pandas to write a CSV is a logger that will not start on a machine
+# where the install went wrong.

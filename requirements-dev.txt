@@ -1,0 +1,12 @@
+# Javad Logger - development-only dependencies
+# Not required to run the application.
+
+-r requirements.txt
+
+pytest==8.3.3          # Unit test runner. The tests are plain functions and
+                       # asserts over synthetic byte streams, so no plugin is
+                       # needed. Anything older than 7.0 would also need a
+                       # conftest.py, since the `pythonpath` setting in
+                       # pytest.ini - what makes the repo root importable
+                       # without installing anything - arrived in that
+                       # release.
