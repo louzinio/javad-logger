@@ -31,6 +31,7 @@ whereas the log pane genuinely uses every pixel it is given.
 from __future__ import annotations
 
 import logging
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
@@ -159,7 +160,19 @@ def default_output_directory() -> Path:
     this tool is normally run from a folder that was copied onto a machine
     for a survey; keeping the data with the program is what makes "send me
     the whole folder" a complete answer.
+
+    Which folder that is depends on how the application was started. Run
+    from source it is the repository, and ``__file__`` finds it. Built into
+    an executable it is the folder the executable is sitting in, and
+    ``__file__`` finds the bundle instead - a directory beside the
+    executable when the build is a folder, and a temporary directory that
+    is deleted on exit when it is a single file. Either would put the
+    session's data somewhere the operator has no reason to look, and the
+    second would throw it away, so a frozen build asks ``sys.executable``
+    where it is instead.
     """
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent / "logs"
     return Path(__file__).resolve().parent.parent / "logs"
 
 

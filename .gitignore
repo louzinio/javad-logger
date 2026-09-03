@@ -9,6 +9,12 @@ __pycache__/
 .venv/
 venv/
 env/
+# The environment the executable is built in. Separate from whatever the
+# developer works in, because PyInstaller refuses to run alongside a few
+# obsolete packages that are harmless everywhere else, and because what
+# ends up inside the build should be the runtime requirements and nothing
+# that happened to be installed beside them.
+.venv-build/
 
 # PyInstaller output
 build/

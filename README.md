@@ -28,6 +28,35 @@ python main.py
 `requirements.txt` is the runtime list — PySide6 and pyserial, and nothing
 else. `requirements-dev.txt` adds pytest on top of it.
 
+## Building an executable
+
+For a machine with no Python on it. The build is done in an environment of
+its own, because PyInstaller refuses to run alongside the obsolete `pathlib`
+backport that several scientific Python distributions still carry, and
+because what ends up inside the executable should be the runtime
+requirements rather than whatever else happened to be installed beside them.
+
+```bash
+python -m venv .venv-build
+.venv-build/Scripts/python.exe -m pip install -r requirements.txt pyinstaller==6.11.1
+.venv-build/Scripts/python.exe -m PyInstaller --noconfirm --clean javad-logger.spec
+```
+
+That leaves the application in `dist/Javad Logger/`, about 110 MB, with
+`Javad Logger.exe` at the top of it. Copy or zip the whole folder — the
+executable will not run without what is beside it.
+
+A folder rather than a single file on purpose. A one-file build unpacks the
+whole of Qt into a temporary directory on every start, several seconds
+before the window appears, and deletes it again on exit; a folder starts
+immediately, and the CSVs and the application log land beside the executable
+where anybody looking for them would look. `javad-logger.spec` says what to
+change to build one file anyway.
+
+Rebuilding while a copy is still running fails on the locked executable.
+Either close it first, or build somewhere else with
+`--distpath dist-2` — `dist-*` is already ignored by git.
+
 ## The window
 
 Decisions on the left — which receiver, what to log, where it goes — and

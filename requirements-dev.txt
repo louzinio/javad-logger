@@ -10,3 +10,11 @@ pytest==8.3.3          # Unit test runner. The tests are plain functions and
                        # pytest.ini - what makes the repo root importable
                        # without installing anything - arrived in that
                        # release.
+
+pyinstaller==6.11.1    # Builds the executable, from javad-logger.spec. Only
+                       # needed to make a build; the application itself never
+                       # imports it. PyInstaller refuses to run in an
+                       # environment that has the obsolete `pathlib` backport
+                       # installed, which several scientific distributions
+                       # still carry, so the build is normally done in a
+                       # throwaway environment of its own - see the README.
