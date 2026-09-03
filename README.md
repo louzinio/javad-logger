@@ -167,14 +167,12 @@ Very little of the hard part is new here, and that is the intention.
 The GREIS decoding — the checksum, the message framing, the struct layouts,
 and the resynchronisation that lets the parser recover a byte at a time
 from a corrupted stream — and the port sweep that identifies a receiver by
-its framing are adapted from
-[GNSS-TrackLog](https://github.com/louzinio/GNSS-TrackLog).
+its framing are adapted from GNSS-TrackLog.
 
-The receiver commands come from
-[javad-udp-target](https://github.com/louzinio/javad-udp-target): the exact
-form of the `em` argument, the periods a Delta will actually sustain over a
-serial link, and the carry-forward state model that makes the position
-message the thing that closes an epoch.
+The receiver commands come from javad-udp-target: the exact form of the
+`em` argument, the periods a Delta will actually sustain over a serial
+link, and the carry-forward state model that makes the position message
+the thing that closes an epoch.
 
 Both were verified against real Javad hardware, and what moved across moved
 with as few edits as possible. Where a file here reads like ported code

@@ -17,15 +17,15 @@ capture and no ephemeris or almanac decoding.
 Two existing projects already talk to Javad hardware, and each has half of
 what this needs.
 
-[GNSS-TrackLog](https://github.com/louzinio/GNSS-TrackLog) has a GREIS
-parser verified against real receivers, and a port sweep that identifies a
-receiver by the framing of its output rather than by asking it anything.
-It has no way to send a receiver a command: it only ever listens.
+GNSS-TrackLog has a GREIS parser verified against real receivers, and a
+port sweep that identifies a receiver by the framing of its output rather
+than by asking it anything. It has no way to send a receiver a command: it
+only ever listens.
 
-[javad-udp-target](https://github.com/louzinio/javad-udp-target) has the
-missing half — `dm` to silence a receiver and `em,,/msg/jps/<CODE>:{...}`
-to start one message at one rate — but it is a headless single-purpose tool
-whose configuration is compiled into the source.
+javad-udp-target has the missing half — `dm` to silence a receiver and
+`em,,/msg/jps/<CODE>:{...}` to start one message at one rate — but it is a
+headless single-purpose tool whose configuration is compiled into the
+source.
 
 Neither is the right home for this. GNSS-TrackLog is an instrument for
 comparing several receivers against a reference and against each other,
