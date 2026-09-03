@@ -37,13 +37,14 @@ from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QCloseEvent
+from PySide6.QtGui import QCloseEvent, QColor, QShowEvent
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QFileDialog,
+    QFrame,
+    QGraphicsDropShadowEffect,
     QGridLayout,
-    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -52,6 +53,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPlainTextEdit,
+    QProgressBar,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -60,26 +62,37 @@ from PySide6.QtWidgets import (
 from device.discovery import DetectedReceiver, DetectionWorker
 from device.serial_port import available_ports
 from device.session import LoggingSession, SessionConfig
+from gui import appearance, motion, theme
 from greis.catalog import CATALOG, PERIOD_CHOICES_S, LogMessage, period_label
 from greis.epoch import JavadEpoch, now_utc
 from recording.csv_writer import default_log_path
 
 _logger = logging.getLogger(__name__)
 
-LEFT_COLUMN_WIDTH = 340
+MINIMUM_WIDTH = 1000
+"""Narrower than this and the log pane, which takes what the fixed left
+column does not, stops being wide enough for a full line of it."""
+
+LEFT_COLUMN_WIDTH = 360
 """The column of decisions. Fixed, because the widest thing in it - a
 period combo beside a message name - is a known width, and letting the
 column grow would only take space from the log."""
+
+VALUE_NAME_WIDTH = 165
+"""The column the value names are set in. Wide enough for the longest of
+them, ``Ground speed (m/s)``, so that every value in the panel starts at
+the same x and the whole column of numbers can be read straight down."""
 
 PERIOD_COMBO_WIDTH = 122
 """Wide enough for the longest label ``period_label`` produces,
 ``10 ms (100 Hz)``. If a shorter value is chosen the text elides and the
 operator can no longer read the rate they selected."""
 
-SECTION_GAP = 10
+SECTION_GAP = theme.SPACE_4
 """The blank row above each section heading in the live panel, in pixels.
 Enough to group the lines under a heading without the panel needing rules
-drawn between the sections."""
+drawn between the sections. Taken from the spacing scale rather than picked
+by eye, so it stays in step with every other gap in the window."""
 
 MAX_LOG_LINES = 500
 """How much of the session's story the pane keeps. Qt discards the oldest
@@ -107,6 +120,14 @@ DETECTION_STOP_TIMEOUT_MS = 3000
 NOT_REPORTED = "—"
 """An em dash for a value the receiver has not sent. Distinct from a zero,
 which is a value the receiver did send."""
+
+NO_RECEIVERS_YET = "Nothing here yet.\nPress Detect to scan the serial ports."
+NO_RECEIVERS_FOUND = (
+    "Nothing answered on any port.\nCheck the cable and the receiver, then scan again."
+)
+"""Shown in the empty list rather than only in the log. An empty box says
+nothing about whether the tool has looked yet, and that is the first
+question anybody has when they open this."""
 
 DETECT_HINT = "Scan every serial port for a Javad receiver."
 RECEIVER_LIST_HINT = "Pick the receiver to log from."
@@ -244,6 +265,55 @@ def _receiver_item_text(receiver: DetectedReceiver) -> str:
     return f"{heading}\n{receiver.summary}"
 
 
+# --- a card ----------------------------------------------------------------
+
+
+class _Card(QWidget):
+    """A titled panel: a heading on the page, and a raised surface below it.
+
+    The title sits *outside* the frame rather than inside its border, which
+    is the one structural difference from the group boxes this replaced. A
+    group box breaks its own frame to make room for its title, so every
+    panel has a notch cut in its top edge and the eye has to reassemble the
+    box; a title on the page above an unbroken surface is read as a label
+    for the thing beneath it without any of that work.
+
+    ``body`` is the layout callers put their widgets in. ``title_row`` is
+    the layout beside the title, for the rare thing that belongs up there -
+    the live dot, and nothing else so far.
+    """
+
+    def __init__(self, title: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(theme.SPACE_2)
+
+        heading = QWidget(self)
+        heading.setObjectName("cardBody")
+        self.title_row = QHBoxLayout(heading)
+        # Indented to the card's own corner radius, so the title starts
+        # where the surface below it actually begins rather than where its
+        # bounding box does.
+        self.title_row.setContentsMargins(theme.RADIUS_CARD, 0, theme.RADIUS_CARD, 0)
+        self.title_row.setSpacing(theme.SPACE_2)
+        label = QLabel(title, heading)
+        label.setObjectName("cardTitle")
+        appearance.apply_type(label, appearance.TITLE)
+        self.title_row.addWidget(label, 0)
+        self.title_row.addStretch(1)
+
+        self.frame = QFrame(self)
+        self.frame.setObjectName("card")
+        self.body = QVBoxLayout(self.frame)
+        self.body.setContentsMargins(theme.SPACE_4, theme.SPACE_4, theme.SPACE_4, theme.SPACE_4)
+        self.body.setSpacing(theme.SPACE_3)
+
+        outer.addWidget(heading, 0)
+        outer.addWidget(self.frame, 1)
+
+
 # --- one row of the message list -------------------------------------------
 
 
@@ -318,11 +388,27 @@ class _MessageRow(QWidget):
 class MainWindow(QMainWindow):
     """Everything the application shows."""
 
-    def __init__(self) -> None:
+    def __init__(self, palette: theme.Palette = theme.LIGHT) -> None:
         super().__init__()
         self.setWindowTitle("Javad Logger")
-        self.setMinimumSize(1000, 700)
-        self.resize(1180, 860)
+        # A width only. An explicit minimum *height* would replace the one
+        # the layout works out for itself, and the window could then be
+        # dragged shorter than the panels inside it need - at which point
+        # Qt makes up the difference by shortening every row of the live
+        # values below the height its own font needs, and the descender is
+        # cut off every p and g in the panel. The layout's own minimum is
+        # the honest one, so it is left alone.
+        self.setMinimumWidth(MINIMUM_WIDTH)
+        self.resize(1180, 900)
+
+        # Taken as an argument rather than read from the application here,
+        # because the shadows and the live dot are built during
+        # ``_build_ui`` and have to be the right colour the first time they
+        # are painted. What the machine is currently set to is the caller's
+        # question; this window only needs the answer.
+        self._palette = palette
+        self._shadows: list[QGraphicsDropShadowEffect] = []
+        self._has_been_shown = False
 
         self._detection: DetectionWorker | None = None
         self._session: LoggingSession | None = None
@@ -354,40 +440,62 @@ class MainWindow(QMainWindow):
 
     def _build_ui(self) -> None:
         central = QWidget(self)
-        central.setObjectName("centralPanel")
+        central.setObjectName("page")
         layout = QHBoxLayout(central)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(12)
+        layout.setContentsMargins(theme.SPACE_5, theme.SPACE_5, theme.SPACE_5, theme.SPACE_5)
+        layout.setSpacing(theme.SPACE_5)
         layout.addWidget(self._build_left_column(), 0)
         layout.addWidget(self._build_right_column(), 1)
         self.setCentralWidget(central)
+
+    def _card(self, title: str) -> _Card:
+        """A card, already lifted off the page.
+
+        The shadow is kept so that it can be recoloured when the machine
+        changes between light and dark: a shadow tuned for a white page is
+        invisible on a black one, and one tuned for black smears across
+        white.
+        """
+        card = _Card(title, self)
+        self._shadows.append(appearance.elevate(card.frame, self._palette))
+        return card
 
     def _build_left_column(self) -> QWidget:
         column = QWidget(self)
         column.setFixedWidth(LEFT_COLUMN_WIDTH)
         layout = QVBoxLayout(column)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(12)
-        # Only the receiver group grows: the message rows and the output
+        layout.setSpacing(theme.SPACE_5)
+        # Only the receiver card grows: the message rows and the output
         # fields have a natural height and gain nothing from more.
-        layout.addWidget(self._build_receiver_group(), 1)
-        layout.addWidget(self._build_messages_group(), 0)
-        layout.addWidget(self._build_output_group(), 0)
+        layout.addWidget(self._build_receiver_card(), 1)
+        layout.addWidget(self._build_messages_card(), 0)
+        layout.addWidget(self._build_output_card(), 0)
         layout.addWidget(self._build_start_button(), 0)
         return column
 
-    def _build_receiver_group(self) -> QGroupBox:
-        group = QGroupBox("Receiver", self)
-        layout = QVBoxLayout(group)
-        layout.setSpacing(8)
+    def _build_receiver_card(self) -> _Card:
+        card = self._card("Receiver")
 
-        self._detect_button = QPushButton("Detect", group)
+        self._detect_button = QPushButton("Detect", card.frame)
         self._detect_button.setToolTip(DETECT_HINT)
+        self._detect_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self._detect_button.clicked.connect(self._on_detect_clicked)
 
-        self._receiver_list = QListWidget(group)
-        self._receiver_list.setMinimumHeight(120)
+        # A bar rather than a spinner, and directly under the button that
+        # started it: a scan has no progress to report, but "the thing you
+        # pressed is still working" is exactly what the operator wants to
+        # know, and saying it next to the button says whose work it is.
+        self._scan_bar = QProgressBar(card.frame)
+        self._scan_bar.setObjectName("scanBar")
+        self._scan_bar.setRange(0, 0)
+        self._scan_bar.setTextVisible(False)
+        self._scan_bar.setVisible(False)
+
+        self._receiver_list = QListWidget(card.frame)
+        self._receiver_list.setMinimumHeight(130)
         self._receiver_list.setToolTip(RECEIVER_LIST_HINT)
+        self._receiver_list.setCursor(Qt.CursorShape.PointingHandCursor)
         # A long USB description would otherwise put a horizontal scroll bar
         # under the list, which hides the second line of every row behind a
         # sideways scroll nobody thinks to try. Eliding loses the tail of a
@@ -397,52 +505,92 @@ class MainWindow(QMainWindow):
         self._receiver_list.setTextElideMode(Qt.TextElideMode.ElideRight)
         self._receiver_list.itemSelectionChanged.connect(self._on_receiver_selected)
 
-        layout.addWidget(self._detect_button)
-        layout.addWidget(self._receiver_list, 1)
-        return group
+        # Stands in the list's place while there is nothing in it, rather
+        # than beside it: an empty bordered box with a sentence under it
+        # reads as a list that has failed, while a sentence where the list
+        # would be reads as the list saying what it knows.
+        self._receiver_placeholder = QLabel(NO_RECEIVERS_YET, card.frame)
+        self._receiver_placeholder.setObjectName("hint")
+        appearance.apply_type(self._receiver_placeholder, appearance.CAPTION)
+        self._receiver_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._receiver_placeholder.setWordWrap(True)
 
-    def _build_messages_group(self) -> QGroupBox:
-        group = QGroupBox("Messages", self)
-        layout = QVBoxLayout(group)
-        layout.setSpacing(2)
+        card.body.setSpacing(theme.SPACE_2)
+        card.body.addWidget(self._detect_button)
+        card.body.addWidget(self._scan_bar)
+        card.body.addWidget(self._receiver_list, 1)
+        card.body.addWidget(self._receiver_placeholder, 1)
+        self._show_receiver_placeholder(NO_RECEIVERS_YET)
+        return card
+
+    def _show_receiver_placeholder(self, text: str | None = None) -> None:
+        """Swap the list for its explanation, or back.
+
+        Called with the text to show, or with nothing to mean "show the
+        list if it has anything in it". The two are never visible together.
+        """
+        if text is not None:
+            self._receiver_placeholder.setText(text)
+        empty = self._receiver_list.count() == 0
+        self._receiver_placeholder.setVisible(empty)
+        self._receiver_list.setVisible(not empty)
+
+    def _build_messages_card(self) -> _Card:
+        card = self._card("Messages")
+        # Tighter than the standard gap: these rows are one list, and
+        # spacing them like separate controls would break them into eight
+        # unrelated decisions.
+        card.body.setSpacing(theme.SPACE_1)
         for message in CATALOG:
-            row = _MessageRow(message, group)
+            row = _MessageRow(message, card.frame)
             self._message_rows.append(row)
-            layout.addWidget(row)
-        return group
+            card.body.addWidget(row)
+        return card
 
-    def _build_output_group(self) -> QGroupBox:
-        group = QGroupBox("Output", self)
-        layout = QVBoxLayout(group)
-        layout.setSpacing(6)
+    def _build_output_card(self) -> _Card:
+        card = self._card("Output")
+        card.body.setSpacing(theme.SPACE_2)
 
-        folder_row = QWidget(group)
+        folder_row = QWidget(card.frame)
+        folder_row.setObjectName("cardBody")
         folder_layout = QHBoxLayout(folder_row)
         folder_layout.setContentsMargins(0, 0, 0, 0)
-        folder_layout.setSpacing(6)
+        folder_layout.setSpacing(theme.SPACE_2)
 
         # Read-only and chosen with Browse: a half-typed path should never
         # be the thing a session tries to write to.
         self._folder_field = QLineEdit(folder_row)
         self._folder_field.setReadOnly(True)
         self._folder_field.setObjectName("pathField")
+        appearance.apply_type(self._folder_field, appearance.PATH)
 
         self._browse_button = QPushButton("Browse", folder_row)
         self._browse_button.setToolTip(BROWSE_HINT)
+        self._browse_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self._browse_button.clicked.connect(self._on_browse_clicked)
 
         folder_layout.addWidget(self._folder_field, 1)
         folder_layout.addWidget(self._browse_button, 0)
 
-        self._name_field = QLineEdit(group)
+        # Named, because an unlabelled second path under the first one reads
+        # as another folder rather than as the file that will be written
+        # into the one above it.
+        name_caption = QLabel("Next file", card.frame)
+        name_caption.setObjectName("hint")
+        appearance.apply_type(name_caption, appearance.CAPTION)
+
+        self._name_field = QLineEdit(card.frame)
         self._name_field.setReadOnly(True)
         self._name_field.setObjectName("pathField")
+        appearance.apply_type(self._name_field, appearance.PATH)
         self._name_field.setToolTip("The file name a session started now would be given.")
 
-        layout.addWidget(folder_row)
-        layout.addWidget(self._name_field)
+        card.body.addWidget(folder_row)
+        card.body.addSpacing(theme.SPACE_1)
+        card.body.addWidget(name_caption)
+        card.body.addWidget(self._name_field)
         self._set_output_folder(default_output_directory())
-        return group
+        return card
 
     def _set_output_folder(self, folder: Path) -> None:
         """Show a folder, and make sure the readable end of it is the end
@@ -462,6 +610,8 @@ class MainWindow(QMainWindow):
     def _build_start_button(self) -> QPushButton:
         self._start_button = QPushButton("Start logging", self)
         self._start_button.setObjectName("primaryButton")
+        self._start_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        appearance.apply_type(self._start_button, appearance.TITLE)
         # Declared here so the stylesheet's [running="true"] rule has a
         # property to match against before the first session.
         self._start_button.setProperty("running", False)
@@ -474,21 +624,61 @@ class MainWindow(QMainWindow):
         column = QWidget(self)
         layout = QVBoxLayout(column)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(12)
-        layout.addWidget(self._build_values_group(), 0)
-        layout.addWidget(self._build_session_group(), 0)
-        layout.addWidget(self._build_log_group(), 1)
+        layout.setSpacing(theme.SPACE_5)
+        layout.addWidget(self._build_values_card(), 0)
+        layout.addWidget(self._build_session_card(), 0)
+        layout.addWidget(self._build_log_card(), 1)
         return column
 
-    def _build_values_group(self) -> QGroupBox:
-        group = QGroupBox("Latest epoch", self)
-        grid = QGridLayout(group)
-        grid.setHorizontalSpacing(18)
-        grid.setVerticalSpacing(3)
-        grid.setColumnStretch(1, 1)
+    def _build_values_card(self) -> _Card:
+        card = self._card("Latest epoch")
+
+        # The dot lives beside the title rather than among the values,
+        # because what it reports is the state of the whole panel: every
+        # number under it is as old as the last time this pulsed.
+        self._live_dot = motion.LiveDot(QColor(self._palette.live), card)
+        self._live_dot.setToolTip("Pulses as each epoch arrives.")
+        card.title_row.insertWidget(1, self._live_dot, 0, Qt.AlignmentFlag.AlignVCenter)
+
+        well = QFrame(card.frame)
+        well.setObjectName("well")
+        columns = QHBoxLayout(well)
+        columns.setContentsMargins(theme.SPACE_4, theme.SPACE_3, theme.SPACE_4, theme.SPACE_3)
+        columns.setSpacing(theme.SPACE_6)
+
+        # Two columns rather than one long list. Nineteen values stacked in
+        # a single column make a panel taller than the window has to spare,
+        # and the layout answers that by squeezing every row below the
+        # height its own font needs - which cuts the descender off every p
+        # and g in the panel. Split in two, the panel is half as tall, the
+        # numbers are still one glance apart, and the card is using width it
+        # was wasting.
+        half = (len(LIVE_SECTIONS) + 1) // 2
+        for sections in (LIVE_SECTIONS[:half], LIVE_SECTIONS[half:]):
+            columns.addLayout(self._value_column(well, sections), 1)
+
+        card.body.addWidget(well)
+        return card
+
+    def _value_column(
+        self,
+        parent: QWidget,
+        sections: tuple[tuple[str, tuple[_LiveField, ...]], ...],
+    ) -> QGridLayout:
+        """One column of the live panel: headings and their name/value rows."""
+        grid = QGridLayout()
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(theme.SPACE_4)
+        grid.setVerticalSpacing(theme.SPACE_1)
+        # The stretch goes into a third, empty column rather than into the
+        # values. Stretching the value column would pin every number to the
+        # far right of the panel, and the eye would have to cross that gap
+        # for every line to pair a name with its value.
+        grid.setColumnMinimumWidth(0, VALUE_NAME_WIDTH)
+        grid.setColumnStretch(2, 1)
 
         row = 0
-        for heading, fields in LIVE_SECTIONS:
+        for heading, fields in sections:
             if row:
                 # An empty row rather than padding on the heading itself:
                 # the grid measures a row minimum height reliably, whereas
@@ -497,58 +687,118 @@ class MainWindow(QMainWindow):
                 # then draws with its top clipped off.
                 grid.setRowMinimumHeight(row, SECTION_GAP)
                 row += 1
-            section = QLabel(heading, group)
+            section = QLabel(heading.upper(), parent)
             section.setObjectName("sectionHeading")
-            grid.addWidget(section, row, 0, 1, 2)
+            appearance.apply_type(section, appearance.HEADING)
+            grid.addWidget(section, row, 0, 1, 3)
             row += 1
             for field in fields:
-                name = QLabel(field.name, group)
+                name = QLabel(field.name, parent)
                 name.setObjectName("valueName")
-                value = QLabel(NOT_REPORTED, group)
+                appearance.apply_type(name, appearance.BODY)
+                value = QLabel(NOT_REPORTED, parent)
                 value.setObjectName("valueText")
+                appearance.apply_type(value, appearance.VALUE)
                 value.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
                 grid.addWidget(name, row, 0)
                 grid.addWidget(value, row, 1)
+                # Each row asks for the taller of its two fonts. Without
+                # this the grid is free to give a row less height than the
+                # text in it needs whenever the panel is short of room, and
+                # what goes first is the bottom pixel of every descender.
+                grid.setRowMinimumHeight(
+                    row,
+                    max(name.sizeHint().height(), value.sizeHint().height()),
+                )
                 self._value_labels[field.name] = value
                 row += 1
-        return group
 
-    def _build_session_group(self) -> QGroupBox:
-        group = QGroupBox("Session", self)
-        grid = QGridLayout(group)
-        grid.setHorizontalSpacing(18)
-        grid.setVerticalSpacing(6)
-        grid.setColumnStretch(1, 1)
+        # Keeps the rows at their own height when the column is given more
+        # room than it needs, instead of the grid sharing the surplus out
+        # between them and spreading the panel apart.
+        grid.setRowStretch(row, 1)
+        return grid
 
-        rows_name = QLabel("Rows written", group)
-        rows_name.setObjectName("valueName")
-        self._row_counter = QLabel("0", group)
+    def _build_session_card(self) -> _Card:
+        card = self._card("Session")
+        card.body.setSpacing(theme.SPACE_2)
+
+        # The count first and its name underneath, rather than a name with
+        # the number beside it. This is the one number in the window read
+        # from across the room, and a label in front of it would be the
+        # thing the eye lands on instead.
+        self._row_counter = motion.RollingNumber(card.frame)
         self._row_counter.setObjectName("rowCounter")
+        appearance.apply_type(self._row_counter, appearance.COUNTER)
 
-        file_name = QLabel("File", group)
-        file_name.setObjectName("valueName")
-        self._file_field = QLineEdit(group)
+        rows_caption = QLabel("Rows written", card.frame)
+        rows_caption.setObjectName("valueName")
+        appearance.apply_type(rows_caption, appearance.CAPTION)
+
+        file_row = QWidget(card.frame)
+        file_row.setObjectName("cardBody")
+        file_layout = QHBoxLayout(file_row)
+        file_layout.setContentsMargins(0, 0, 0, 0)
+        file_layout.setSpacing(theme.SPACE_3)
+
+        file_caption = QLabel("File", file_row)
+        file_caption.setObjectName("valueName")
+        appearance.apply_type(file_caption, appearance.BODY)
+
+        self._file_field = QLineEdit(file_row)
         self._file_field.setReadOnly(True)
         self._file_field.setObjectName("pathField")
+        appearance.apply_type(self._file_field, appearance.PATH)
         self._file_field.setPlaceholderText("Not logging")
 
-        grid.addWidget(rows_name, 0, 0)
-        grid.addWidget(self._row_counter, 0, 1)
-        grid.addWidget(file_name, 1, 0)
-        grid.addWidget(self._file_field, 1, 1)
-        return group
+        file_layout.addWidget(file_caption, 0)
+        file_layout.addWidget(self._file_field, 1)
 
-    def _build_log_group(self) -> QGroupBox:
-        group = QGroupBox("Log", self)
-        layout = QVBoxLayout(group)
-        self._log_view = QPlainTextEdit(group)
+        card.body.addWidget(self._row_counter)
+        card.body.addWidget(rows_caption)
+        card.body.addSpacing(theme.SPACE_2)
+        card.body.addWidget(file_row)
+        return card
+
+    def _build_log_card(self) -> _Card:
+        card = self._card("Log")
+        self._log_view = QPlainTextEdit(card.frame)
         self._log_view.setObjectName("logPane")
         self._log_view.setReadOnly(True)
+        self._log_view.setFrameShape(QFrame.Shape.NoFrame)
+        appearance.apply_log_type(self._log_view)
         # Qt drops the oldest block itself once the cap is reached, so no
         # trimming code of our own is needed.
         self._log_view.setMaximumBlockCount(MAX_LOG_LINES)
-        layout.addWidget(self._log_view)
-        return group
+        card.body.addWidget(self._log_view)
+        return card
+
+    # --- following the system's appearance --------------------------------
+
+    def apply_palette(self, palette: theme.Palette) -> None:
+        """Move everything a stylesheet cannot reach to the other appearance.
+
+        The sheet itself is set on the application, so the colours of every
+        widget follow from one call there. Two things do not: a card's
+        shadow, which is a graphics effect rather than a style rule, and the
+        live dot, which paints itself. Both are held for exactly this.
+        """
+        self._palette = palette
+        for shadow in self._shadows:
+            appearance.recolour_shadow(shadow, palette)
+        self._live_dot.set_colour(QColor(palette.live))
+
+    def showEvent(self, event: QShowEvent) -> None:  # noqa: N802 - Qt's spelling
+        """Bring the window up rather than snapping it on.
+
+        Only the first time: a window that faded in every time it was
+        un-minimised would be putting on a performance the operator did not
+        ask for, and one they would be waiting through.
+        """
+        super().showEvent(event)
+        if not self._has_been_shown:
+            self._has_been_shown = True
+            motion.fade_window_in(self)
 
     # --- the log pane -----------------------------------------------------
 
@@ -585,6 +835,9 @@ class MainWindow(QMainWindow):
     def _start_detection(self) -> None:
         ports = available_ports()
         if not ports:
+            self._show_receiver_placeholder(
+                "No serial ports on this machine.\nCheck the cable and the driver."
+            )
             self._log("No serial ports on this machine. Check the cable or the driver.")
             return
 
@@ -592,6 +845,8 @@ class MainWindow(QMainWindow):
         # receiver that was chosen is about to be looked for again.
         self._receiver_list.clear()
         self._log(f"Detecting on {len(ports)} port{'' if len(ports) == 1 else 's'}...")
+        self._scan_bar.setVisible(True)
+        self._show_receiver_placeholder("Scanning...")
 
         worker = DetectionWorker(parent=self)
         worker.receiver_found.connect(self._on_receiver_found)
@@ -606,11 +861,13 @@ class MainWindow(QMainWindow):
         item = QListWidgetItem(_receiver_item_text(receiver))
         item.setData(Qt.ItemDataRole.UserRole, receiver)
         self._receiver_list.addItem(item)
+        self._show_receiver_placeholder()
         self._log(f"Found {receiver.port}: {receiver.summary}")
 
     def _on_scan_finished(self, receivers: list) -> None:
         count = len(receivers)
         if count == 0:
+            self._show_receiver_placeholder(NO_RECEIVERS_FOUND)
             self._log("Detection finished: nothing answered.")
             return
         self._log(f"Detection finished: {count} receiver{'' if count == 1 else 's'}.")
@@ -624,6 +881,7 @@ class MainWindow(QMainWindow):
         self._detection = None
         if worker is not None:
             worker.deleteLater()
+        self._scan_bar.setVisible(False)
         self._detect_button.setText("Detect")
         self._detect_button.setEnabled(self._session is None)
 
@@ -697,7 +955,7 @@ class MainWindow(QMainWindow):
         self._pending_epoch = None
         self._pending_row_count = None
         self._clear_live_values()
-        self._row_counter.setText("0")
+        self._row_counter.reset()
         self._file_field.setText(str(config.output_path))
         self._log(f"Logging to {config.output_path}")
         self._log(
@@ -796,6 +1054,9 @@ class MainWindow(QMainWindow):
             self._live_timer.stop()
             self._preview_timer.start()
             self._update_name_preview()
+            # Nothing is arriving any more, and a dot left glowing over a
+            # finished session would say the opposite.
+            self._live_dot.go_dark()
 
     @staticmethod
     def _repolish(widget: QWidget) -> None:
@@ -826,10 +1087,14 @@ class MainWindow(QMainWindow):
             for _heading, fields in LIVE_SECTIONS:
                 for field in fields:
                     self._value_labels[field.name].setText(_format_value(field, epoch))
+            # An epoch was waiting, so at least one arrived since the last
+            # redraw. That - rather than the timer, which ticks whether or
+            # not the receiver is still talking - is what the dot reports.
+            self._live_dot.beat()
         count = self._pending_row_count
         if count is not None:
             self._pending_row_count = None
-            self._row_counter.setText(f"{count:,}")
+            self._row_counter.roll_to(count)
 
     def _clear_live_values(self) -> None:
         """Back to em dashes, so a new session never shows the previous

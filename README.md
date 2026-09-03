@@ -28,6 +28,30 @@ python main.py
 `requirements.txt` is the runtime list — PySide6 and pyserial, and nothing
 else. `requirements-dev.txt` adds pytest on top of it.
 
+## The window
+
+Decisions on the left — which receiver, what to log, where it goes — and
+what is arriving on the right. Nothing moves between the two, so the eye
+learns where to look once.
+
+The window follows the machine between light and dark and changes with it
+while it is running, because a survey tool is read outdoors in daylight and
+in a vehicle at night and the operator has already told their computer
+which of those they are in.
+
+There are exactly two moving things, and both report something. The green
+dot beside **Latest epoch** pulses as each epoch arrives, which answers "is
+anything coming in *right now*" faster than watching a number for a few
+seconds does — a receiver that has gone quiet leaves it dark. The rows
+counter rolls to its new value rather than snapping, so how fast it travels
+is how fast rows are being written.
+
+Both are dropped if Windows has been asked for less animation ("Show
+animations in Windows", under Settings › Accessibility › Visual effects):
+the dot then stays lit while epochs arrive and the counter simply changes.
+Set `JAVAD_LOGGER_REDUCED_MOTION=1` to get that behaviour without changing
+the system setting.
+
 ## Finding the receiver
 
 Adding a receiver by hand means knowing two things the machine can work out

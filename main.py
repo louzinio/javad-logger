@@ -27,9 +27,10 @@ import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 
-from gui import theme
+from gui import appearance, theme
 from gui.main_window import MainWindow, default_output_directory
 
 APPLICATION_NAME = "Javad Logger"
@@ -94,9 +95,31 @@ def main() -> int:
     # combo boxes and check boxes itself and ignores several of the rules
     # in the stylesheet, which would leave the window looking half themed.
     app.setStyle("Fusion")
-    app.setStyleSheet(theme.stylesheet())
 
-    window = MainWindow()
+    # The face and size every widget starts from. Set on the application
+    # rather than in the stylesheet, because a font in a style sheet cannot
+    # be overridden per widget and the window has seven sizes in it.
+    appearance.apply_application_type(app)
+
+    # The application follows the machine between light and dark rather
+    # than picking one. A survey tool is read outdoors in daylight and in a
+    # vehicle at night, and the operator has already told their computer
+    # which of those they are in; asking them to tell this window as well
+    # would be asking twice.
+    hints = app.styleHints()
+
+    def wear(scheme: Qt.ColorScheme) -> None:
+        palette = appearance.palette_for(scheme)
+        # The sheet goes on the application rather than the window so that
+        # the dialogs this program never builds itself - the folder
+        # chooser, a warning box - change appearance with everything else.
+        app.setStyleSheet(theme.stylesheet(palette))
+        window.apply_palette(palette)
+
+    window = MainWindow(appearance.palette_for(hints.colorScheme()))
+    wear(hints.colorScheme())
+    hints.colorSchemeChanged.connect(wear)
+
     window.show()
     return app.exec()
 
