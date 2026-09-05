@@ -100,11 +100,13 @@ jobs:
         working-directory: ios
         run: |
           PLIST=payload/Payload/JavadLogger.app/Info.plist
-          for key in NSLocalNetworkUsageDescription UIFileSharingEnabled LSSupportsOpeningDocumentsInPlace; do
+          for key in NSLocalNetworkUsageDescription UIFileSharingEnabled LSSupportsOpeningDocumentsInPlace CFBundleIconName; do
             /usr/libexec/PlistBuddy -c "Print :$key" "$PLIST" >/dev/null \
               || { echo "::error::$key is missing from the built Info.plist"; exit 1; }
           done
-          echo "local network, file sharing and open-in-place are all present"
+          echo "local network, file sharing, open-in-place and the icon name are all present"
+          test -f payload/Payload/JavadLogger.app/AppIcon60x60@2x.png \n            || { echo "::error::the asset catalog produced no app icon"; exit 1; }
+          echo "icon present"
 
       - uses: actions/upload-artifact@v4
         with:

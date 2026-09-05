@@ -36,6 +36,11 @@ targets:
         CFBundleShortVersionString: "0.1.2"
         CFBundleVersion: "3"
 
+        # With GENERATE_INFOPLIST_FILE off, Xcode does not add this for
+        # us, and without it iOS ignores the compiled asset catalog and
+        # shows the app with a blank icon.
+        CFBundleIconName: AppIcon
+
         # The prompt iOS puts up on the first socket to a device on the
         # same Wi-Fi. Without this key the app is denied local network
         # access outright, with no prompt and no error worth reading.
@@ -63,6 +68,7 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         SWIFT_VERSION: "6.0"
         TARGETED_DEVICE_FAMILY: "1"   # iPhone only
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_USER_SCRIPT_SANDBOXING: YES
         # The runner builds against the iOS 26 SDK, so the real glass API is
         # available. See App/Glass.swift — still the only file that knows
