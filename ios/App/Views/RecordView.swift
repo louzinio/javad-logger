@@ -158,7 +158,11 @@ struct RecordView: View {
                     Text(model.isRecording ? "Stop and close the file" : "Start a new file")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
+                // Bordered rather than prominent: a prominent button
+                // fills itself with the accent and puts white type on
+                // top, and white on JAVAD's lime measures 2.1:1. This
+                // tints the capsule and colours the label instead.
+                .buttonStyle(.bordered)
                 .controlSize(.large)
                 .buttonBorderShape(.capsule)
 

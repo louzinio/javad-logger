@@ -33,8 +33,8 @@ targets:
       path: App/Info.plist
       properties:
         CFBundleDisplayName: Javad Logger
-        CFBundleShortVersionString: "0.1.4"
-        CFBundleVersion: "5"
+        CFBundleShortVersionString: "0.2.0"
+        CFBundleVersion: "6"
 
         # With GENERATE_INFOPLIST_FILE off, Xcode does not add this for
         # us, and without it iOS ignores the compiled asset catalog and
@@ -69,6 +69,10 @@ targets:
         SWIFT_VERSION: "6.0"
         TARGETED_DEVICE_FAMILY: "1"   # iPhone only
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # JAVAD's green, the same two values the desktop palette uses:
+        # #527a2b in light, #85c446 in dark. Without naming it here the
+        # catalog's colour is ignored and every control stays system blue.
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         ENABLE_USER_SCRIPT_SANDBOXING: YES
         # The runner builds against the iOS 26 SDK, so the real glass API is
         # available. See App/Glass.swift — still the only file that knows
