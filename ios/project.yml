@@ -1,0 +1,43 @@
+# XcodeGen spec. There is no .xcodeproj checked in, because a generated
+# one is a large binary-ish file that conflicts on every merge and cannot
+# be reviewed. `xcodegen generate` in this directory produces it.
+#
+#   brew install xcodegen
+#   cd ios && xcodegen generate && open JavadLogger.xcodeproj
+name: JavadLogger
+
+options:
+  bundleIdPrefix: com.example.javadlogger
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+packages:
+  GreisKit:
+    path: GreisKit
+
+targets:
+  JavadLogger:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+    dependencies:
+      - package: GreisKit
+        product: GreisKit
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: Javad Logger
+        CFBundleShortVersionString: "0.1"
+        CFBundleVersion: "1"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.javadlogger
+        GENERATE_INFOPLIST_FILE: NO
+        SWIFT_VERSION: "6.0"
+        TARGETED_DEVICE_FAMILY: "1"   # iPhone only
+        ENABLE_USER_SCRIPT_SANDBOXING: YES
+        # Uncomment once you have an iOS 26 SDK to build against, and see
+        # App/Glass.swift — it is the only file that changes.
+        # SWIFT_ACTIVE_COMPILATION_CONDITIONS: USE_LIQUID_GLASS
