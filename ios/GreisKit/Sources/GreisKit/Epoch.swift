@@ -116,15 +116,24 @@ let utcCalendar: Calendar = {
 
 /// ISO-8601 with milliseconds, in UTC — the format both timestamp columns
 /// are written in.
+///
+/// Formatted from components rather than with an `ISO8601DateFormatter`.
+/// A shared formatter is not `Sendable`, and a per-call one is an
+/// allocation on the path that runs once per epoch — at 100 Hz that is
+/// 100 formatters a second to produce 24 fixed characters.
 public enum ISO8601 {
-    private static let formatter: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        return formatter
-    }()
 
     public static func string(from date: Date) -> String {
-        formatter.string(from: date)
+        let parts = utcCalendar.dateComponents(
+            [.year, .month, .day, .hour, .minute, .second, .nanosecond], from: date
+        )
+        // Truncated, not rounded: rounding 999.6 ms would print ".1000".
+        let milliseconds = (parts.nanosecond ?? 0) / 1_000_000
+        return String(
+            format: "%04d-%02d-%02dT%02d:%02d:%02d.%03dZ",
+            parts.year ?? 0, parts.month ?? 0, parts.day ?? 0,
+            parts.hour ?? 0, parts.minute ?? 0, parts.second ?? 0,
+            milliseconds
+        )
     }
 }

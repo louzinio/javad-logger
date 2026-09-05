@@ -1,6 +1,22 @@
 import Foundation
 import Network
 
+/// A one-shot gate. `claim()` returns true exactly once, however many
+/// threads call it — which is what a continuation needs, because resuming
+/// one twice is a crash rather than a warning.
+final class OnceGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var claimed = false
+
+    func claim() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        if claimed { return false }
+        claimed = true
+        return true
+    }
+}
+
 /// A TCP connection to the receiver, over the Wi-Fi network it raises.
 ///
 /// This is the whole reason the iPhone build exists at all: iOS has no
@@ -71,29 +87,30 @@ public actor TCPTransport: GreisTransport {
         )
         self.connection = connection
 
+        // `stateUpdateHandler` can fire more than once, and a continuation
+        // resumed twice is a crash rather than a warning. The gate has to
+        // be shared mutable state across a `@Sendable` closure, so it is a
+        // locked box rather than a captured `var`.
+        let once = OnceGate()
+
         try await withCheckedThrowingContinuation { (resume: CheckedContinuation<Void, Error>) in
-            var settled = false
             connection.stateUpdateHandler = { state in
                 switch state {
                 case .ready:
-                    guard !settled else { return }
-                    settled = true
-                    resume.resume()
+                    if once.claim() { resume.resume() }
                 case .failed(let error):
-                    guard !settled else { return }
-                    settled = true
-                    resume.resume(throwing: TransportError.connectionFailed(error.localizedDescription))
+                    if once.claim() {
+                        resume.resume(throwing: TransportError.connectionFailed(error.localizedDescription))
+                    }
                 case .cancelled:
-                    guard !settled else { return }
-                    settled = true
-                    resume.resume(throwing: TransportError.cancelled)
+                    if once.claim() { resume.resume(throwing: TransportError.cancelled) }
                 case .waiting(let error):
                     // `.waiting` on a link-local address is usually terminal
                     // rather than transient: the phone is on the wrong
                     // network. Failing now beats a spinner that never ends.
-                    guard !settled else { return }
-                    settled = true
-                    resume.resume(throwing: TransportError.connectionFailed(error.localizedDescription))
+                    if once.claim() {
+                        resume.resume(throwing: TransportError.connectionFailed(error.localizedDescription))
+                    }
                 default:
                     break
                 }
