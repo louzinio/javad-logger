@@ -1,40 +1,40 @@
 # Javad Logger
 
-Desktop application for recording what a Javad GNSS receiver has to say.
-It finds the receiver on its own, offers a list of GREIS messages to tick,
-asks the receiver for the ones chosen at the rates chosen, and writes one
-CSV row per position epoch.
+אפליקציית דסקטופ שמקליטה את מה שמקלט Javad GNSS אומר.
+היא מוצאת את המקלט בעצמה, מציגה רשימה של הודעות GREIS לסימון, מבקשת
+מהמקלט את מה שנבחר בקצב שנבחר, וכותבת שורת CSV אחת לכל epoch של מיקום.
 
-One receiver at a time, over a serial port. There is no network transport,
-no second receiver to compare against and no analysis — the file it
-produces is the point, and whatever reads that file afterwards is somebody
-else's program. What this has to get right is that the file contains what
-was asked for, that the receiver is found without being told where it is,
-and that the receiver is left exactly as it was.
+מקלט אחד בכל פעם, דרך פורט טורי. אין תעבורת רשת, אין מקלט שני להשוואה
+ואין ניתוח — הקובץ שנוצר הוא כל העניין, ומה שקורא אותו אחר כך זו תוכנית
+של מישהו אחר. מה שהיא כן חייבת לעשות נכון: שהקובץ יכיל בדיוק את מה
+שהתבקש, שהמקלט יימצא בלי שיגידו לה איפה הוא, ושהמקלט יישאר בדיוק כפי
+שהיה.
 
-## Requirements
+יש גם [גרסת iPhone](ios/) — אותה עבודה, מעל TCP ל-Wi-Fi שהמקלט מרים
+בעצמו, כי ל-iOS אין גישה לפורט טורי בכלל.
 
-Windows 10/11 and Python 3.11+, and a Javad receiver on a serial port. A
-USB cable and a Bluetooth serial link both appear as ordinary COM ports, so
-neither needs anything special here.
+## דרישות
 
-## Running from source
+Windows 10/11 ו-Python 3.11+, ומקלט Javad על פורט טורי. כבל USB וחיבור
+Bluetooth טורי שניהם מופיעים כ-COM port רגיל, אז אף אחד מהם לא דורש
+טיפול מיוחד.
+
+## הרצה מהמקור
 
 ```bash
 pip install -r requirements-dev.txt
 python main.py
 ```
 
-`requirements.txt` is the runtime list — PySide6 and pyserial, and nothing
-else. `requirements-dev.txt` adds pytest on top of it.
+`requirements.txt` היא רשימת ה-runtime — PySide6 ו-pyserial, ולא יותר
+מזה. `requirements-dev.txt` מוסיפה עליה pytest.
 
-## Building an executable
+## בניית קובץ הרצה
 
-For a machine with no Python on it. The build is done in an environment of
-its own, because PyInstaller refuses to run alongside the obsolete `pathlib`
-backport that several scientific Python distributions still carry, and
-because what ends up inside the executable should be the runtime
-requirements rather than whatever else happened to be installed beside them.
+בשביל מכונה שאין עליה Python. הבנייה נעשית בסביבה נפרדת משלה, כי
+PyInstaller מסרב לרוץ לצד ה-backport המיושן של `pathlib` שכמה הפצות
+Python מדעיות עדיין נושאות, וכי מה שנכנס לקובץ ההרצה צריך להיות דרישות
+ה-runtime ולא כל מה שבמקרה הותקן לידן.
 
 ```bash
 python -m venv .venv-build
@@ -42,213 +42,232 @@ python -m venv .venv-build
 .venv-build/Scripts/python.exe -m PyInstaller --noconfirm --clean javad-logger.spec
 ```
 
-That leaves the application in `dist/Javad Logger/`, about 110 MB, with
-`Javad Logger.exe` at the top of it. Copy or zip the whole folder — the
-executable will not run without what is beside it.
+זה משאיר את האפליקציה ב-`dist/Javad Logger/`, בערך 110MB, עם
+`Javad Logger.exe` בראש התיקייה. העתק או דחוס את כל התיקייה — קובץ
+ההרצה לא ירוץ בלי מה שלידו.
 
-A folder rather than a single file on purpose. A one-file build unpacks the
-whole of Qt into a temporary directory on every start, several seconds
-before the window appears, and deletes it again on exit; a folder starts
-immediately, and the CSVs and the application log land beside the executable
-where anybody looking for them would look. `javad-logger.spec` says what to
-change to build one file anyway.
+תיקייה ולא קובץ בודד, בכוונה. בנייה לקובץ אחד פורקת את כל Qt לתיקייה
+זמנית בכל הפעלה, כמה שניות לפני שהחלון מופיע, ומוחקת אותה שוב ביציאה;
+תיקייה נפתחת מיד, וקבצי ה-CSV ויומן האפליקציה נוחתים ליד קובץ ההרצה,
+במקום שבו מי שמחפש אותם יחפש. `javad-logger.spec` מסביר מה לשנות כדי
+לבנות קובץ אחד בכל זאת.
 
-Rebuilding while a copy is still running fails on the locked executable.
-Either close it first, or build somewhere else with
-`--distpath dist-2` — `dist-*` is already ignored by git.
+בנייה בזמן שעותק עדיין רץ נכשלת על קובץ ההרצה הנעול. או לסגור אותו
+קודם, או לבנות למקום אחר עם `--distpath dist-2` — `dist-*` כבר מוחרג
+ב-git.
 
-## The window
+## החלון
 
-Decisions on the left — which receiver, what to log, where it goes — and
-what is arriving on the right. Nothing moves between the two, so the eye
-learns where to look once.
+החלטות משמאל — איזה מקלט, מה לתעד, לאן זה הולך — ומה שמגיע מימין. שום
+דבר לא עובר בין השניים, אז העין לומדת פעם אחת לאן להסתכל.
 
-The window follows the machine between light and dark and changes with it
-while it is running, because a survey tool is read outdoors in daylight and
-in a vehicle at night and the operator has already told their computer
-which of those they are in.
+החלון עוקב אחרי המכונה בין בהיר לכהה ומשתנה איתה תוך כדי ריצה, כי כלי
+מדידה נקרא בחוץ באור יום וברכב בלילה, והמפעיל כבר אמר למחשב שלו באיזה
+מהם הוא נמצא.
 
-There are exactly two moving things, and both report something. The green
-dot beside **Latest epoch** pulses as each epoch arrives, which answers "is
-anything coming in *right now*" faster than watching a number for a few
-seconds does — a receiver that has gone quiet leaves it dark. The rows
-counter rolls to its new value rather than snapping, so how fast it travels
-is how fast rows are being written.
+יש בדיוק שני דברים שזזים, ושניהם מדווחים משהו. הנקודה הירוקה ליד
+**Latest epoch** פועמת עם כל epoch שמגיע, וזה עונה על "האם משהו נכנס
+*עכשיו*" מהר יותר מלהסתכל על מספר במשך כמה שניות — מקלט שהשתתק משאיר
+אותה כבויה. מונה השורות מתגלגל לערך החדש במקום לקפוץ אליו, כך שמהירות
+הנסיעה שלו היא מהירות כתיבת השורות.
 
-Both are dropped if Windows has been asked for less animation ("Show
-animations in Windows", under Settings › Accessibility › Visual effects):
-the dot then stays lit while epochs arrive and the counter simply changes.
-Set `JAVAD_LOGGER_REDUCED_MOTION=1` to get that behaviour without changing
-the system setting.
+שניהם נופלים אם Windows התבקש לפחות אנימציה ("Show animations in
+Windows", תחת Settings › Accessibility › Visual effects): הנקודה נשארת
+אז דלוקה כל עוד epochs מגיעים, והמונה פשוט משתנה. אפשר לקבל את ההתנהגות
+הזאת בלי לשנות את הגדרת המערכת עם `JAVAD_LOGGER_REDUCED_MOTION=1`.
 
-## Finding the receiver
+## מציאת המקלט
 
-Adding a receiver by hand means knowing two things the machine can work out
-for itself: which COM port it is on and what baud rate it is talking at.
-Getting either wrong produces a connection that opens and then says
-nothing, which looks identical to a dead cable.
+הוספת מקלט ביד דורשת לדעת שני דברים שהמכונה יכולה להסיק בעצמה: על איזה
+COM port הוא יושב ובאיזה baud rate הוא מדבר. טעות באחד מהם מייצרת חיבור
+שנפתח ואז שותק, וזה נראה בדיוק כמו כבל מת.
 
-So **Detect** sweeps instead. It opens each serial port in turn at each
-baud rate in turn, listens for a short window, and looks for a GREIS
-message whose checksum verifies. A verified checksum is proof rather than a
-guess: it is a rotate-and-XOR over the whole message, and for it to come
-out right the header, the body length and every byte between them have to
-be right too. Random noise at the wrong baud rate does not produce one, and
-a message that produces one will be decoded by the same checksum code the
-parser uses, so a hit here means the parser will agree.
+לכן **Detect** סורק במקום. הוא פותח כל פורט טורי בתורו בכל baud rate
+בתורו, מקשיב לחלון זמן קצר, ומחפש הודעת GREIS ש-checksum שלה מתאמת.
+checksum מאומת הוא הוכחה ולא ניחוש: זה rotate-and-XOR על כל ההודעה,
+וכדי שהוא ייצא נכון גם הכותרת, גם אורך הגוף וגם כל בייט ביניהם חייבים
+להיות נכונים. רעש אקראי ב-baud rate שגוי לא מייצר כזה, והודעה שמייצרת
+כזה תפוענח על ידי אותו קוד checksum שהפרסר משתמש בו — כך שפגיעה כאן
+אומרת שהפרסר יסכים.
 
-Note what is *not* required — a position. A receiver indoors, on a bench,
-or still searching has nothing to report yet, and requiring a fix would
-make the receiver sitting on the desk the one receiver detection cannot
-find, while telling the operator to check a cable that was fine. Whether a
-position has arrived is a separate question and is reported separately.
+שים לב למה ש**לא** נדרש — מיקום. מקלט בתוך מבנה, על שולחן, או שעדיין
+מחפש, אין לו עדיין מה לדווח, ודרישה ל-fix הייתה הופכת את המקלט שיושב על
+השולחן למקלט היחיד שהזיהוי לא מוצא, תוך שהיא אומרת למפעיל לבדוק כבל
+שהיה תקין. האם הגיע מיקום זו שאלה נפרדת ומדווחת בנפרד.
 
-That leaves the receiver that says nothing at all, and it is a case worth
-handling because this application creates it: a session ends by sending
-`dm`, which switches every message off. A receiver left that way is
-perfectly healthy and completely silent, and a listen-only sweep walks
-straight past it. So a port that stays quiet through the listening window
-gets asked a question instead — `print,/par/rcv/model:on`, to which a Javad
-replies with a line containing `/par/rcv/model=` and its model name. A
-receiver answers; an empty adapter, a modem or a printer does not. The
-model name is worth having from a talking receiver too, and is shown beside
-each result, because two identical COM ports are otherwise told apart only
-by which one you unplugged.
+נשאר המקלט ששותק לגמרי, וזה מקרה ששווה לטפל בו כי האפליקציה הזאת יוצרת
+אותו: סשן מסתיים בשליחת `dm`, שמכבה כל הודעה. מקלט שנשאר ככה בריא לגמרי
+ואילם לחלוטין, וסריקה שרק מאזינה עוברת לידו. לכן פורט ששותק לאורך חלון
+ההאזנה נשאל שאלה במקום — `print,/par/rcv/model:on`, ש-Javad עונה לה
+בשורה שמכילה `/par/rcv/model=` ואת שם הדגם. מקלט עונה; מתאם ריק, מודם או
+מדפסת לא. שם הדגם שווה משהו גם ממקלט מדבר, ומוצג ליד כל תוצאה, כי שני
+COM ports זהים נבדלים אחרת רק לפי מי מהם ניתקת.
 
-## What you can log
+## מה אפשר לתעד
 
-Five messages. Each one contributes its own columns to the file, and
-nothing else in the application needs to change when a sixth is added.
+חמש הודעות. כל אחת תורמת את העמודות שלה לקובץ, ושום דבר אחר באפליקציה
+לא צריך להשתנות כשמוסיפים שישית.
 
-| Message | What it puts in the file |
+| הודעה | מה היא שמה בקובץ |
 |---|---|
-| **Position** `[PG]` | Latitude, longitude and altitude, the receiver's own estimate of its position error, and the solution type — as the GREIS code and in words, so `4` and `RTK Fixed` are both there. |
-| **Velocity** `[VG]` | North, east and up velocity components with the receiver's error estimate, plus the ground speed and 3D speed derived from them. |
-| **Time of day** `[ST]` | The receiver's clock, as milliseconds since midnight on its own time base, written as `HH:MM:SS.mmm`. |
-| **Date** `[RD]` | The receiver's date and which time base it is on. Combined with the time of day into one full UTC timestamp, with the leap-second offset applied when the base is GPS rather than UTC — so that timestamp column stays empty unless Time of day is selected as well. |
-| **Satellites** `[NP]` | How many satellites of each constellation — GPS, GLONASS, Galileo, BeiDou — went into the solution, and the total. |
+| **Position** `[PG]` | קו רוחב, קו אורך וגובה, הערכת שגיאת המיקום של המקלט עצמו, וסוג הפתרון — גם כקוד GREIS וגם במילים, כך ש-`4` ו-`RTK Fixed` שניהם שם. |
+| **Velocity** `[VG]` | רכיבי מהירות צפון, מזרח ומעלה עם הערכת השגיאה של המקלט, ובנוסף מהירות הקרקע והמהירות התלת-ממדית שנגזרות מהם. |
+| **Time of day** `[ST]` | שעון המקלט, כמילישניות מחצות על בסיס הזמן שלו עצמו, נכתב כ-`HH:MM:SS.mmm`. |
+| **Date** `[RD]` | תאריך המקלט ועל איזה בסיס זמן הוא נמצא. משולב עם שעת היום לחותמת UTC מלאה אחת, עם היסט ה-leap second מוחל כשהבסיס הוא GPS ולא UTC — ולכן עמודת החותמת הזאת נשארת ריקה אלא אם Time of day נבחרה גם היא. |
+| **Satellites** `[NP]` | כמה לוויינים מכל קונסטלציה — GPS, GLONASS, Galileo, BeiDou — נכנסו לפתרון, והסך הכל. |
 
-Position cannot be switched off. It is the position message that closes an
-epoch: it is the self-contained solution, and everything else carries its
-last value forward until one arrives. Without it there is no moment at
-which a row becomes complete, so there would be no rows to put the velocity
-or the time into. Its checkbox is shown ticked and disabled rather than
-hidden, so the reason is visible instead of mysterious.
+אי אפשר לכבות את Position. הודעת המיקום היא זו שסוגרת epoch: היא פתרון
+המיקום העצמאי, וכל השאר נושאים את הערך האחרון שלהם קדימה עד שמגיעה אחת.
+בלעדיה אין רגע שבו שורה נעשית שלמה, אז לא היו שורות לשים בהן את המהירות
+או את הזמן. תיבת הסימון שלה מוצגת מסומנת ומושבתת ולא מוסתרת, כדי שהסיבה
+תהיה גלויה במקום מסתורית.
 
-## Rates
+## קצבים
 
-Every ticked message has a rate beside it, and the number is a **period in
-seconds** rather than a frequency, because a period is what GREIS's `em`
-command takes: `em,,/msg/jps/PG:{0.01,0,0,0}` asks for a position message
-every 10 ms. The hertz equivalent is shown beside the sub-second choices,
-since `0.01` is easier to recognise as 100 Hz than as a hundredth of a
-second.
+לכל הודעה מסומנת יש קצב לידה, והמספר הוא **מחזור בשניות** ולא תדר, כי
+מחזור הוא מה שפקודת `em` של GREIS מקבלת:
+`em,,/msg/jps/PG:{0.01,0,0,0}` מבקשת הודעת מיקום כל 10ms. המקבילה
+בהרץ מוצגת ליד הבחירות שמתחת לשנייה, מכיוון ש-`0.01` קל יותר לזהות
+כ-100Hz מאשר כמאית השנייה.
 
-The messages do not have to share a rate, and usually should not. Position
-ten times a second with the date once every ten seconds is a sensible thing
-to ask for — the date changes once a day, and asking for it at 10 Hz spends
-the serial link on a value that is already known.
+ההודעות לא חייבות לחלוק קצב, ובדרך כלל לא כדאי שיחלקו. מיקום עשר פעמים
+בשנייה עם תאריך פעם בעשר שניות זה דבר הגיוני לבקש — התאריך משתנה פעם
+ביום, ולבקש אותו ב-10Hz זה לבזבז את הקו הטורי על ערך שכבר ידוע.
 
-A slower message does not leave holes in the file. Its last value is
-carried forward onto every row until the next one arrives, so a ticked
-column is a filled column on every row from the first time the receiver
-reports it. The rows before that first report are genuinely empty in those
-columns, and that is the one gap that is real: nothing had been said yet.
+הודעה איטית לא משאירה חורים בקובץ. הערך האחרון שלה נישא קדימה לכל שורה
+עד שמגיע הבא, כך שעמודה מסומנת היא עמודה מלאה בכל שורה מהפעם הראשונה
+שהמקלט דיווח עליה. השורות שלפני הדיווח הראשון באמת ריקות באותן עמודות,
+וזה הפער האחד שהוא אמיתי: עוד לא נאמר כלום.
 
-The list stops at 10 ms because that is the fastest javad-udp-target drives
-a Delta over a serial link, and below it the messages start to outrun the
-port rather than the receiver. Several messages at 10 ms each is a
-throughput question, not a receiver question, and the answer depends on the
-baud rate the link came up at.
+הרשימה נעצרת ב-10ms כי זה הכי מהר ש-javad-udp-target מניע Delta מעל קו
+טורי, ומתחת לזה ההודעות מתחילות לעקוף את הפורט ולא את המקלט. כמה הודעות
+ב-10ms כל אחת זו שאלה של תפוקה, לא שאלה על המקלט, והתשובה תלויה ב-baud
+rate שהחיבור עלה בו.
 
-## What it sends the receiver
+## מה היא שולחת למקלט
 
-The complete list, in the order it goes out. Starting a session:
+הרשימה המלאה, בסדר שבו היא יוצאת. פתיחת סשן:
 
-1. `dm` — stop every message on this port, so what follows is what the file
-   holds, rather than whatever the last person left switched on.
-2. One `em` per ticked message, at its period:
-   `em,,/msg/jps/PG:{1,0,0,0}`, `em,,/msg/jps/NP:{10,0,0,0}`, and so on.
-   The three zeros are `em`'s remaining arguments — count, delay and
-   reserved — left at the defaults that mean "forever, starting now". They
-   are written out rather than omitted because that is the form verified
-   against real hardware, and a hex dump of a session should be comparable
-   against a known-good one.
+1. `dm` — עצור כל הודעה בפורט הזה, כך שמה שבא אחריו הוא מה שהקובץ מכיל,
+   ולא מה שהאדם הקודם השאיר דלוק.
+2. `em` אחת לכל הודעה מסומנת, במחזור שלה:
+   `em,,/msg/jps/PG:{1,0,0,0}`, `em,,/msg/jps/NP:{10,0,0,0}`, וכן הלאה.
+   שלושת האפסים הם שאר הארגומנטים של `em` — count, delay ו-reserved —
+   שנשארים בברירות המחדל שמשמעותן "לתמיד, מעכשיו". הם נכתבים במפורש ולא
+   מושמטים, כי זו הצורה שאומתה מול חומרה אמיתית, ו-hex dump של סשן צריך
+   להיות בר-השוואה מול אחד ידוע-תקין.
 
-Ending a session:
+סגירת סשן:
 
-3. `dm` again, so the receiver is not left streaming into a port nobody is
-   reading.
+3. `dm` שוב, כדי שהמקלט לא יישאר משדר לתוך פורט שאף אחד לא קורא.
 
-Detection adds one more line, `print,/par/rcv/model:on`, asked of a port
-that has gone quiet. That is the whole vocabulary: three commands.
+הזיהוי מוסיף שורה אחת, `print,/par/rcv/model:on`, שנשאלת לפורט ששתק.
+זו כל אוצר המילים: שלוש פקודות.
 
-What it deliberately does not touch is longer than what it does. Not the
-baud rate — it adapts to whatever the receiver is using instead of setting
-it. Not PPP, and not the correction stream. Not Bluetooth or Wi-Fi. Not
-base or rover mode. Those are decisions about how the receiver *works*, and
-this application only decides what it *says*. A receiver configured for
-survey work is still configured for it when the session ends; the only
-lasting change is which messages are enabled on the port it was plugged
-into, which is exactly what asking for a log means.
+מה שהיא במפורש **לא** נוגעת בו ארוך ממה שהיא כן. לא ה-baud rate — היא
+מסתגלת למה שהמקלט משתמש בו במקום לקבוע אותו. לא PPP, ולא זרם התיקונים.
+לא base או rover mode. אלה החלטות על איך המקלט *עובד*, והאפליקציה הזאת
+מחליטה רק מה הוא *אומר*. מקלט שהוגדר לעבודת מדידה עדיין מוגדר לה כשהסשן
+נגמר; השינוי הנשאר היחיד הוא אילו הודעות דלוקות בפורט שאליו הוא היה
+מחובר, וזה בדיוק מה שלבקש log אומר.
 
-## The file it writes
+יש חריג אחד ומוצהר: הכפתור שמדליק את ה-Wi-Fi של המקלט.
 
-One row per position epoch, and one file per session. The header is built
-from the selection, so the file describes itself: a column per field of
-each ticked message, in the catalogue's order — where you are, how fast,
-when, and with what.
+## ה-Wi-Fi של המקלט
 
-`host_time_utc` comes first and is always present, whatever is selected. It
-is the host's own clock, and it is the one timestamp that exists before the
-receiver's date and time have arrived, which is what stops a file from ever
-being without a time axis. The receiver's own timestamp sits further along
-in the row and answers a different question — when the receiver says the
-epoch happened, rather than when this machine saw it.
+בכרטיס Receiver יש כפתור קטן שמופיע **רק** אם המקלט שנבחר יש לו רדיו.
+הוא מעביר אותו למצב שבו הוא מרים רשת Wi-Fi משלו, כדי שאפליקציית
+ה-iPhone תוכל להגיע אליו בלי כבל.
 
-An empty cell means "not reported", never zero. A missing velocity
-component is not a stationary receiver and a missing satellite count is not
-an empty sky, so the two are kept apart on the page as well as in memory.
-Numbers are written as the receiver sent them: nine decimals of latitude,
-which is about a tenth of a millimetre — past anything a receiver can mean
-and short of where the underlying double starts printing its own noise.
+זה המקום היחיד באפליקציה שכותב לתצורת המקלט, ולכן הוא שואל לפני, ואומר
+בדיוק מה יקרה.
 
-## Where the code came from
+היכולת **נשאלת ולא נבדקת מול רשימת דגמים**: אין ביט שאומר "לדגם הזה יש
+Wi-Fi". מקלט בלי רדיו פשוט לא עונה על `print,/par/net/wlan/mode:on`,
+והשתיקה הזאת היא התשובה. טבלה של שמות דגמים הייתה נעשית שגויה ביום
+שנוסף דגם. מקלט ישן בלי מודול לא רואה את הכפתור בכלל — אין לו את
+הפיצ'ר, וכפתור מושבת רק היה מעורר את השאלה איך מפעילים אותו.
 
-Very little of the hard part is new here, and that is the intention.
+הרצף שנשלח:
 
-The GREIS decoding — the checksum, the message framing, the struct layouts,
-and the resynchronisation that lets the parser recover a byte at a time
-from a corrupted stream — and the port sweep that identifies a receiver by
-its framing are adapted from GNSS-TrackLog.
+```
+set,/par/net/tcp/port,8002
+set,/par/net/wlan/ap/ssid,"<שם הדגם>"
+set,/par/net/dhcp/server/mode,on
+set,/par/net/dhcp/client/mode,off
+set,/par/net/wlan/mode,adhoc
+set,reset,yes
+```
 
-The receiver commands come from javad-udp-target: the exact form of the
-`em` argument, the periods a Delta will actually sustain over a serial
-link, and the carry-forward state model that makes the position message
-the thing that closes an epoch.
+`set,reset,yes` בסוף אינו אופציונלי. שינויי Wi-Fi לא נכנסים לתוקף עד
+שהמקלט מאתחל, והשמטתו היא הדרך הנפוצה לטעות כאן: כל ההגדרות נקראות
+בחזרה נכון ושום דבר לא קורה. האתחול מפיל את הפורט, ולכן רשימת המקלטים
+מתנקה — ככה הצלחה נראית כאן.
 
-Both were verified against real Javad hardware, and what moved across moved
-with as few edits as possible. Where a file here reads like ported code
-rather than like code written for this application, that is deliberate —
-the tidier version would be the version nobody has run against a receiver.
-What did change is where the decoded values end up: GNSS-TrackLog reduces
-velocity to speed-and-course and satellites to a single total so that
-receivers of different makes can be compared, while a log file is read
-later by somebody who wants the numbers the receiver actually sent, so
-every field is kept as GREIS reported it and the derived ones are offered
-alongside rather than instead.
+שם הרשת נלקח מדגם המקלט, כדי ששני מקלטים באותו אתר ייבדלו ברשימת
+ה-Wi-Fi של הטלפון ולא על ידי כיבוי אחד מהם.
 
-## Tests
+## הקובץ שהיא כותבת
+
+שורה אחת לכל epoch של מיקום, וקובץ אחד לכל סשן. הכותרת נבנית מהבחירה,
+כך שהקובץ מתאר את עצמו: עמודה לכל שדה של כל הודעה מסומנת, בסדר של
+הקטלוג — איפה אתה, כמה מהר, מתי, ועם מה.
+
+`host_time_utc` באה ראשונה ותמיד נוכחת, מה שלא ייבחר. זה השעון של
+המחשב עצמו, והיא חותמת הזמן היחידה שקיימת עוד לפני שהתאריך והשעה של
+המקלט הגיעו, וזה מה שמונע מקובץ להיות אי פעם בלי ציר זמן. חותמת הזמן
+של המקלט עצמו יושבת רחוק יותר בשורה ועונה על שאלה אחרת — מתי המקלט אומר
+שה-epoch קרה, ולא מתי המכונה הזאת ראתה אותו.
+
+תא ריק פירושו "לא דווח", לעולם לא אפס. רכיב מהירות חסר הוא לא מקלט
+עומד במקום, וספירת לוויינים חסרה היא לא שמיים ריקים, ולכן השניים נשמרים
+נפרדים על הדף כמו שהם נפרדים בזיכרון. מספרים נכתבים כפי שהמקלט שלח
+אותם: תשע ספרות אחרי הנקודה בקו הרוחב, שהן בערך עשירית מילימטר — מעבר
+לכל מה שמקלט יכול להתכוון אליו, ולפני הנקודה שבה ה-double הבינארי מתחיל
+להדפיס את הרעש של עצמו.
+
+## מאיפה הקוד הגיע
+
+מעט מאוד מהחלק הקשה כאן הוא חדש, וזו הכוונה.
+
+פענוח ה-GREIS — ה-checksum, מסגור ההודעות, פריסות ה-struct, והסנכרון
+מחדש שמאפשר לפרסר להתאושש בייט אחד בכל פעם מזרם פגום — וסריקת הפורטים
+שמזהה מקלט לפי המסגור שלו, מותאמים מ-GNSS-TrackLog.
+
+פקודות המקלט מגיעות מ-javad-udp-target: הצורה המדויקת של הארגומנט
+ל-`em`, המחזורים ש-Delta באמת מסוגל לעמוד בהם מעל קו טורי, ומודל
+ה-carry-forward שהופך את הודעת המיקום לזו שסוגרת epoch.
+
+שניהם אומתו מול חומרת Javad אמיתית, ומה שעבר לכאן עבר עם כמה שפחות
+עריכות. איפה שקובץ כאן נקרא כמו קוד מפורט ולא כמו קוד שנכתב לאפליקציה
+הזאת — זה מכוון: הגרסה המסודרת יותר הייתה הגרסה שאף אחד לא הריץ מול
+מקלט. מה שכן השתנה הוא לאן הערכים המפוענחים הולכים: GNSS-TrackLog מצמצם
+מהירות ל-speed-and-course ולוויינים לסך הכל אחד, כדי שאפשר יהיה להשוות
+מקלטים של יצרנים שונים, בעוד שקובץ log נקרא אחר כך על ידי מישהו שרוצה
+את המספרים שהמקלט באמת שלח — אז כל שדה נשמר כפי ש-GREIS דיווח עליו,
+והנגזרים מוצעים לצידו ולא במקומו.
+
+## גרסת ה-iPhone
+
+ב-[`ios/`](ios/) יושבת אותה עבודה בדיוק, מעל התעבורה היחידה שיש
+ל-iPhone אל מקלט: TCP ל-Wi-Fi שהמקלט מרים בעצמו. ל-iOS אין API טורי
+בכלל, והוא לא פותח חיבור Bluetooth SPP בלי הסמכת MFi.
+
+הפענוח עבר ל-Swift בלי שינוי התנהגותי, ו-[`ios/README.md`](ios/README.md)
+מסביר מה נשאר, מה הוסר ומה עוד לא נבדק מול חומרה. קובצי התקנה מוכנים
+נמצאים ב-[Releases](https://github.com/louzinio/javad-logger/releases).
+
+## בדיקות
 
 ```bash
 pytest
 ```
 
-They run against synthetic byte streams built to the GREIS layouts, so
-nothing has to be plugged in and no port is opened. `pytest.ini` puts the
-repository root on `sys.path`, which is what lets the tests import `greis`
-and `device` without anything being installed first.
+הן רצות מול זרמי בייטים סינתטיים שנבנו לפריסות של GREIS, כך שלא צריך
+לחבר שום דבר ולא נפתח שום פורט. `pytest.ini` שם את שורש המאגר
+ב-`sys.path`, וזה מה שמאפשר לבדיקות לייבא את `greis` ואת `device` בלי
+שהותקן שום דבר קודם.
 
-## License
+## רישיון
 
-Proprietary — internal project.
+קניינית — פרויקט פנימי.
