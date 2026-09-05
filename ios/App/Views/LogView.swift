@@ -66,24 +66,28 @@ private struct MessageRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Toggle(isOn: binding) {
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 6) {
-                        Text(message.label)
-                        CodeChip(code: message.code)
-                    }
-                    Text(message.detail)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+            if message.mandatory {
+                // Not a disabled Toggle. A tinted Toggle that is disabled
+                // renders grey, so the one message that can never be
+                // switched off was the one that looked switched off. This
+                // says what is true instead of miming a control that does
+                // nothing.
+                HStack(alignment: .top, spacing: 12) {
+                    label
+                    Spacer(minLength: 12)
+                    Label("Always", systemImage: "checkmark.circle.fill")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.tint)
+                        .labelStyle(.titleAndIcon)
+                        .fixedSize()
                 }
+            } else {
+                Toggle(isOn: binding) { label }
+                    // A Toggle ignores the accent colour and paints its
+                    // on-state with the system green, which put two
+                    // different greens side by side on one screen.
+                    .tint(.accentColor)
             }
-            .disabled(message.mandatory)
-            // A Toggle ignores the accent colour and paints its on-state with
-            // the system green, which put two different greens side by side on
-            // the same screen. Tinting it is the only way to make it wear the
-            // brand's.
-            .tint(.accentColor)
 
             // A derived entry has no rate to choose: it is computed from a
             // message that is already arriving, so it arrives exactly as
@@ -100,6 +104,19 @@ private struct MessageRow: View {
             }
         }
         .padding(.vertical, 2)
+    }
+
+    private var label: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 6) {
+                Text(message.label)
+                CodeChip(code: message.code)
+            }
+            Text(message.detail)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     private var binding: Binding<Bool> {

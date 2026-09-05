@@ -33,8 +33,8 @@ targets:
       path: App/Info.plist
       properties:
         CFBundleDisplayName: Javad Logger
-        CFBundleShortVersionString: "0.2.3"
-        CFBundleVersion: "9"
+        CFBundleShortVersionString: "0.2.4"
+        CFBundleVersion: "10"
 
         # With GENERATE_INFOPLIST_FILE off, Xcode does not add this for
         # us, and without it iOS ignores the compiled asset catalog and
