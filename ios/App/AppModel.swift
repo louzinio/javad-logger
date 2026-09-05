@@ -24,9 +24,13 @@ struct Selection: Codable, Equatable {
         periods[message.code] ?? message.defaultPeriod
     }
 
+    /// What the receiver is actually asked for.
+    ///
+    /// A derived entry is left out: it has no GREIS message to enable, and
+    /// asking for "ECEF" would be asking for a name GREIS does not have.
     var requests: [GreisCommands.MessageRequest] {
         Catalog.all
-            .filter { isOn($0) }
+            .filter { isOn($0) && !$0.derived }
             .map { .init(code: $0.code, period: period($0)) }
     }
 

@@ -51,6 +51,11 @@ public struct LogMessage: Identifiable, Sendable {
     /// The screen shows it on and disabled rather than hiding it, so the
     /// reason is visible instead of mysterious.
     public let mandatory: Bool
+    /// Computed here from what another message already carries, rather than
+    /// asked for. A derived entry gets no `em` command and has no rate — it
+    /// arrives exactly as often as the message it is computed from — so the
+    /// command builder skips it and the screen hides its rate.
+    public var derived: Bool = false
 
     public var id: String { code }
 }
@@ -152,9 +157,27 @@ public enum Catalog {
         mandatory: false
     )
 
+    public static let ecef = LogMessage(
+        code: "ECEF",
+        label: "ECEF position",
+        detail: "The same position as X, Y and Z in metres from the centre of the earth, computed from [PG] on the WGS-84 ellipsoid. Costs the receiver nothing.",
+        columns: [
+            // Four decimals is a tenth of a millimetre, matching the
+            // altitude it is computed from. A double carries eleven
+            // significant digits at 6 400 km without strain, so the
+            // precision of the input survives the transform.
+            LogColumn("ecef_x_m", decimals: 4) { .init($0.ecefXM) },
+            LogColumn("ecef_y_m", decimals: 4) { .init($0.ecefYM) },
+            LogColumn("ecef_z_m", decimals: 4) { .init($0.ecefZM) },
+        ],
+        defaultPeriod: 1.0,
+        mandatory: false,
+        derived: true
+    )
+
     /// In the order they are offered, which is the order their columns
     /// appear in the file: where you are, how fast, when, and with what.
-    public static let all: [LogMessage] = [pg, vg, st, rd, np]
+    public static let all: [LogMessage] = [pg, vg, st, rd, np, ecef]
 
     public static func message(code: String) -> LogMessage? {
         all.first { $0.code == code }

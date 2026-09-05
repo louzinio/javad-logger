@@ -175,9 +175,13 @@ class LoggingSession(QThread):
 
     def _configure_receiver(self, port: SerialPort) -> None:
         """Silence the receiver, then ask it for the ticked messages."""
+        # A derived entry has no message to enable: it is computed here
+        # from one that is already coming. Asking the receiver for "ECEF"
+        # would be asking for something GREIS has no such name for.
         requests = tuple(
             MessageRequest(code=message.code, period_s=period_s)
             for message, period_s in self._config.selection
+            if not message.derived
         )
         for command in start_logging(requests):
             port.write_line(command)
@@ -189,13 +193,21 @@ class LoggingSession(QThread):
 
         port.discard_input()
 
+        # Says what was asked for, so a derived column is not reported as
+        # something the receiver was told to send. It was not.
         enabled = ", ".join(
             f"[{message.code}] every {period_label(period_s)}"
             for message, period_s in self._config.selection
+            if not message.derived
         )
         self.status.emit(
             f"{self._config.port} at {self._config.baud_rate} baud: asked for {enabled}."
         )
+        computed = ", ".join(
+            message.label for message, _ in self._config.selection if message.derived
+        )
+        if computed:
+            self.status.emit(f"Also writing {computed}, computed here from what arrives.")
 
     def _record(self, port: SerialPort, writer: CsvLogWriter) -> None:
         """Read, parse and write until Stop is asked for or the port dies."""

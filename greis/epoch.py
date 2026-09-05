@@ -23,6 +23,8 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timezone
 from math import hypot
 
+from greis.geodesy import geodetic_to_ecef
+
 GPS_UTC_LEAP_SECONDS = 18
 """GPS time does not apply leap seconds, so it has drifted ahead of UTC.
 Applied only when a [RD] message says its date is on the GPS time base
@@ -130,6 +132,40 @@ class JavadEpoch:
         if ground is None or self.vel_up_mps is None:
             return None
         return hypot(ground, self.vel_up_mps)
+
+    @property
+    def ecef(self) -> tuple[float, float, float] | None:
+        """The same position in earth-centred, earth-fixed metres.
+
+        Derived rather than asked for. A receiver can report Cartesian
+        position itself, but it would be computing it from this same
+        solution, so the extra message would cost serial bandwidth and buy
+        nothing - and a derived column can be added to sessions that were
+        already recorded, which a message cannot.
+
+        ``None`` unless all three of latitude, longitude and height
+        arrived: two thirds of a position is not a position, and putting
+        an X and a Y with no Z into a file would be worse than leaving the
+        row empty.
+        """
+        if self.latitude_deg is None or self.longitude_deg is None or self.altitude_m is None:
+            return None
+        return geodetic_to_ecef(self.latitude_deg, self.longitude_deg, self.altitude_m)
+
+    @property
+    def ecef_x_m(self) -> float | None:
+        position = self.ecef
+        return position[0] if position is not None else None
+
+    @property
+    def ecef_y_m(self) -> float | None:
+        position = self.ecef
+        return position[1] if position is not None else None
+
+    @property
+    def ecef_z_m(self) -> float | None:
+        position = self.ecef
+        return position[2] if position is not None else None
 
     @property
     def sv_total(self) -> int | None:

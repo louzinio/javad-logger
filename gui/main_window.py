@@ -150,6 +150,10 @@ LOCKED_MESSAGES_HINT = (
     "Stop the session to change what is logged."
 )
 LOCKED_OUTPUT_HINT = "Not while logging: the file is open. Stop the session to write elsewhere."
+DERIVED_HINT = (
+    "Computed here from the position message rather than asked of the receiver, "
+    "so it costs nothing on the serial link and arrives at the position rate."
+)
 MANDATORY_HINT = (
     "Always logged: a position message is what closes an epoch, "
     "so the file would have no rows without it."
@@ -365,6 +369,15 @@ class _MessageRow(QWidget):
             self._checkbox.setEnabled(False)
             self._checkbox.setToolTip(f"{message.description}\n\n{MANDATORY_HINT}")
 
+        if message.derived:
+            # No rate to choose: it is computed from a message that is
+            # already arriving, so it arrives exactly as often as that one
+            # does. A combo box here would offer a decision with no effect,
+            # which is worse than offering none.
+            self._combo.setVisible(False)
+            self._checkbox.setChecked(False)
+            self._checkbox.setToolTip(f"{message.description}\n\n{DERIVED_HINT}")
+
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
@@ -377,6 +390,15 @@ class _MessageRow(QWidget):
 
     @property
     def period_s(self) -> float:
+        """The chosen rate, or the catalogue default for a derived row.
+
+        A derived row's period is never sent anywhere - the command builder
+        skips it - but the selection travels as (message, period) pairs
+        everywhere else, and returning a number keeps that shape instead of
+        threading a None through it for one row.
+        """
+        if self.message.derived:
+            return self.message.default_period_s
         return float(self._combo.currentData())
 
     def set_locked(self, locked: bool) -> None:

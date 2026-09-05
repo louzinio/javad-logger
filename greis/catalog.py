@@ -53,6 +53,16 @@ class LogMessage:
     off the file would have no rows to put the other messages' values in.
     The GUI shows it checked and disabled rather than hiding it, so the
     reason is visible."""
+    derived: bool = False
+    """Computed here from what another message already carries, rather than
+    asked for. A derived entry gets no ``em`` command and has no period -
+    it arrives exactly as often as the message it is computed from - so the
+    command builder skips it and the GUI hides its rate.
+
+    It sits in this list rather than in a separate one because everything
+    that walks the catalogue - the checkboxes, the CSV header, the column
+    order - should treat it the same way. Only the two places that talk to
+    the receiver need to know the difference."""
 
 
 def _fmt_date(epoch: JavadEpoch) -> str | None:
@@ -156,7 +166,26 @@ NP = LogMessage(
     ),
 )
 
-CATALOG: tuple[LogMessage, ...] = (PG, VG, ST, RD, NP)
+ECEF = LogMessage(
+    code="ECEF",
+    label="ECEF position",
+    description=(
+        "The same position as X, Y and Z in metres from the centre of the earth, "
+        "computed from [PG] on the WGS-84 ellipsoid. Costs the receiver nothing."
+    ),
+    default_period_s=1.0,
+    derived=True,
+    columns=(
+        # Four decimals is a tenth of a millimetre, matching the altitude
+        # it is computed from. A double holds eleven significant digits at
+        # 6 400 km without strain, so the precision of the input survives.
+        Column("ecef_x_m", lambda e: e.ecef_x_m, decimals=4),
+        Column("ecef_y_m", lambda e: e.ecef_y_m, decimals=4),
+        Column("ecef_z_m", lambda e: e.ecef_z_m, decimals=4),
+    ),
+)
+
+CATALOG: tuple[LogMessage, ...] = (PG, VG, ST, RD, NP, ECEF)
 """In the order they are offered, which is the order their columns appear
 in the file: where you are, how fast, when, and with what."""
 

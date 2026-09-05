@@ -179,3 +179,94 @@ final class ParserTests: XCTestCase {
                      "state from before a reconnect must not appear in rows after it")
     }
 }
+
+/// The geodetic-to-ECEF transform, checked against points whose answers
+/// are fixed by the definition of WGS-84 rather than by this code. A
+/// conversion tested only against its own output is tested against nothing.
+final class GeodesyTests: XCTestCase {
+
+    func testTheEllipsoidConstantsAreWGS84() {
+        // Both are derived from a and 1/f rather than typed in, so this is
+        // really a check that the derivation is right.
+        XCTAssertEqual(Geodesy.semiMinorAxisM, 6_356_752.314245, accuracy: 1e-6)
+        XCTAssertEqual(Geodesy.eccentricitySquared, 0.00669437999014, accuracy: 1e-14)
+    }
+
+    func testTheOriginOfTheFrameIsTheSemiMajorAxis() {
+        let p = Geodesy.geodeticToECEF(latitudeDeg: 0, longitudeDeg: 0, heightM: 0)
+        XCTAssertEqual(p.x, Geodesy.semiMajorAxisM, accuracy: 1e-6)
+        XCTAssertEqual(p.y, 0, accuracy: 1e-6)
+        XCTAssertEqual(p.z, 0, accuracy: 1e-6)
+    }
+
+    func testTheNorthPoleIsTheSemiMinorAxis() {
+        let p = Geodesy.geodeticToECEF(latitudeDeg: 90, longitudeDeg: 0, heightM: 0)
+        XCTAssertEqual(p.x, 0, accuracy: 1e-6)
+        XCTAssertEqual(p.y, 0, accuracy: 1e-6)
+        XCTAssertEqual(p.z, Geodesy.semiMinorAxisM, accuracy: 1e-6)
+    }
+
+    func testNinetyDegreesEastLiesOnTheYAxis() {
+        let p = Geodesy.geodeticToECEF(latitudeDeg: 0, longitudeDeg: 90, heightM: 0)
+        XCTAssertEqual(p.y, Geodesy.semiMajorAxisM, accuracy: 1e-6)
+    }
+
+    func testHeightIsAddedAlongTheNormal() {
+        let equator = Geodesy.geodeticToECEF(latitudeDeg: 0, longitudeDeg: 0, heightM: 100)
+        XCTAssertEqual(equator.x, Geodesy.semiMajorAxisM + 100, accuracy: 1e-6)
+
+        let pole = Geodesy.geodeticToECEF(latitudeDeg: 90, longitudeDeg: 0, heightM: 100)
+        XCTAssertEqual(pole.z, Geodesy.semiMinorAxisM + 100, accuracy: 1e-6)
+    }
+
+    /// The property that makes ECEF usable as a baseline reference.
+    func testAMetreOfHeightMovesThePointByAMetre() {
+        let a = Geodesy.geodeticToECEF(latitudeDeg: 32, longitudeDeg: 34, heightM: 100)
+        let b = Geodesy.geodeticToECEF(latitudeDeg: 32, longitudeDeg: 34, heightM: 101)
+        let moved = ((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) + (a.z - b.z) * (a.z - b.z)).squareRoot()
+        XCTAssertEqual(moved, 1.0, accuracy: 1e-9)
+    }
+
+    /// The two ports must agree to the last decimal the file records, or a
+    /// session logged on the phone and one logged on the desktop would not
+    /// be comparable.
+    func testItMatchesThePythonPortAtTheFixturePoint() {
+        let p = Geodesy.geodeticToECEF(
+            latitudeDeg: 32.081234567, longitudeDeg: 34.780987654, heightM: 42.8137
+        )
+        XCTAssertEqual(p.x, 4_442_879.4099, accuracy: 1e-4)
+        XCTAssertEqual(p.y, 3_085_695.7153, accuracy: 1e-4)
+        XCTAssertEqual(p.z, 3_368_089.9191, accuracy: 1e-4)
+    }
+
+    func testAnEpochWithoutAFullPositionHasNoECEF() {
+        var parser = GreisParser(receiverID: "TEST")
+        _ = parser.feed(Fixtures.st())
+        var epoch = JavadEpoch(receiverID: "TEST", receivedAt: Date())
+        XCTAssertNil(epoch.ecef)
+
+        epoch.latitudeDeg = 32
+        epoch.longitudeDeg = 34
+        XCTAssertNil(epoch.ecef, "two thirds of a position is not a position")
+
+        epoch.altitudeM = 0
+        XCTAssertNotNil(epoch.ecef)
+    }
+
+    /// Nothing may be asked of the receiver for a derived entry: GREIS has
+    /// no message called ECEF, and an `em` naming one would be an error on
+    /// the wire.
+    func testNoCommandIsSentForADerivedEntry() {
+        XCTAssertTrue(Catalog.ecef.derived)
+        XCTAssertFalse(Catalog.pg.derived)
+
+        let asked = Catalog.all.filter { !$0.derived }.map(\.code)
+        XCTAssertFalse(asked.contains("ECEF"))
+        XCTAssertEqual(asked, ["PG", "VG", "ST", "RD", "NP"])
+    }
+
+    func testECEFStillContributesItsColumns() {
+        let names = CSVLogWriter.columns(for: [Catalog.pg, Catalog.ecef]).map(\.name)
+        XCTAssertEqual(names.suffix(3), ["ecef_x_m", "ecef_y_m", "ecef_z_m"])
+    }
+}

@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 
+import pytest
+
 from greis.catalog import (
     BY_CODE,
     CATALOG,
@@ -180,3 +182,76 @@ def test_period_label_of_thirty_seconds_is_plain_seconds():
 def test_every_offered_period_gets_a_label():
     for period in PERIOD_CHOICES_S:
         assert period_label(period)
+
+
+# --- derived columns ------------------------------------------------------
+
+
+def test_ecef_is_in_the_catalogue_and_marked_derived():
+    from greis.catalog import ECEF
+
+    assert ECEF in CATALOG
+    assert ECEF.derived is True
+    assert ECEF.mandatory is False
+
+
+def test_every_real_message_is_not_derived():
+    """The flag exists to mark the exception, so the rule should hold for
+    everything else: if a GREIS message ever gets marked derived, no `em`
+    would be sent for it and the file would quietly lose its columns."""
+    for message in CATALOG:
+        if message.code != "ECEF":
+            assert message.derived is False, message.code
+
+
+def test_ecef_contributes_three_columns_in_metres():
+    from greis.catalog import ECEF
+
+    assert [column.name for column in ECEF.columns] == ["ecef_x_m", "ecef_y_m", "ecef_z_m"]
+    assert all(column.decimals == 4 for column in ECEF.columns)
+
+
+def test_ecef_columns_read_the_derived_position():
+    from datetime import datetime, timezone
+
+    from greis.catalog import ECEF
+    from greis.epoch import JavadEpoch
+
+    epoch = JavadEpoch(
+        receiver_id="T",
+        received_at=datetime.now(timezone.utc),
+        latitude_deg=0.0,
+        longitude_deg=0.0,
+        altitude_m=0.0,
+    )
+    x, y, z = (column.value(epoch) for column in ECEF.columns)
+    assert x == pytest.approx(6378137.0, abs=1e-6)
+    assert y == pytest.approx(0.0, abs=1e-6)
+    assert z == pytest.approx(0.0, abs=1e-6)
+
+
+def test_ecef_columns_are_empty_without_a_position():
+    from datetime import datetime, timezone
+
+    from greis.catalog import ECEF
+    from greis.epoch import JavadEpoch
+
+    epoch = JavadEpoch(receiver_id="T", received_at=datetime.now(timezone.utc))
+    assert all(column.value(epoch) is None for column in ECEF.columns)
+
+
+def test_a_height_of_none_leaves_ecef_empty_even_with_a_latitude():
+    """Two thirds of a position is not a position. An X and a Y with no Z
+    would be worse in a file than three empty cells."""
+    from datetime import datetime, timezone
+
+    from greis.catalog import ECEF
+    from greis.epoch import JavadEpoch
+
+    epoch = JavadEpoch(
+        receiver_id="T",
+        received_at=datetime.now(timezone.utc),
+        latitude_deg=32.0,
+        longitude_deg=34.0,
+    )
+    assert all(column.value(epoch) is None for column in ECEF.columns)

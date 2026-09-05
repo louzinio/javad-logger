@@ -75,13 +75,19 @@ private struct MessageRow: View {
             }
             .disabled(message.mandatory)
 
-            Picker("Rate", selection: periodBinding) {
-                ForEach(Catalog.periods, id: \.self) { period in
-                    Text(Catalog.periodLabel(period)).tag(period)
+            // A derived entry has no rate to choose: it is computed from a
+            // message that is already arriving, so it arrives exactly as
+            // often as that one does. Offering a picker here would offer a
+            // decision with no effect.
+            if !message.derived {
+                Picker("Rate", selection: periodBinding) {
+                    ForEach(Catalog.periods, id: \.self) { period in
+                        Text(Catalog.periodLabel(period)).tag(period)
+                    }
                 }
+                .pickerStyle(.menu)
+                .disabled(!model.selection.isOn(message))
             }
-            .pickerStyle(.menu)
-            .disabled(!model.selection.isOn(message))
         }
         .padding(.vertical, 2)
     }

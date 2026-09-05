@@ -89,6 +89,26 @@ public struct JavadEpoch: Equatable, Sendable {
         return (ground * ground + up * up).squareRoot()
     }
 
+    /// The same position in earth-centred, earth-fixed metres.
+    ///
+    /// Derived rather than asked for: a receiver reporting Cartesian
+    /// position would compute it from this same solution, so the extra
+    /// message would cost link bandwidth and buy nothing.
+    ///
+    /// `nil` unless all three of latitude, longitude and height arrived.
+    /// Two thirds of a position is not a position, and an X and a Y with
+    /// no Z in a file is worse than three empty cells.
+    public var ecef: (x: Double, y: Double, z: Double)? {
+        guard let latitudeDeg, let longitudeDeg, let altitudeM else { return nil }
+        return Geodesy.geodeticToECEF(
+            latitudeDeg: latitudeDeg, longitudeDeg: longitudeDeg, heightM: altitudeM
+        )
+    }
+
+    public var ecefXM: Double? { ecef?.x }
+    public var ecefYM: Double? { ecef?.y }
+    public var ecefZM: Double? { ecef?.z }
+
     /// Total satellites used. `nil` when no [NP] has arrived at all; a
     /// constellation the receiver did not mention counts as zero, which is
     /// what GREIS means by omitting its field.
