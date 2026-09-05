@@ -101,7 +101,7 @@ struct RecordView: View {
                     Color.clear.frame(height: 28)
                 }
             }
-            .background(Color(.systemGroupedBackground))
+            .background(.ground)
             .navigationTitle("Recording")
             .onReceive(tick) { _ in
                 guard let started = model.startedAt, model.isRecording else { return }

@@ -76,6 +76,10 @@ struct LinkView: View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
             }
+            // A Form paints its own scroll background, so it has to be
+            // hidden before the ground behind it can show.
+            .scrollContentBackground(.hidden)
+            .background(.ground)
             .navigationTitle("Link")
         }
     }

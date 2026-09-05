@@ -22,6 +22,10 @@ struct FilesView: View {
                     }
                 }
             }
+            // A Form paints its own scroll background, so it has to be
+            // hidden before the ground behind it can show.
+            .scrollContentBackground(.hidden)
+            .background(.ground)
             .navigationTitle("Files")
             .toolbar { EditButton() }
             // The list is a stored property now, so appearing is enough to

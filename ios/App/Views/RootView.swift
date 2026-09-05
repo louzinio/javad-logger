@@ -31,6 +31,17 @@ struct RootView: View {
 
 // MARK: - Shared pieces
 
+/// The ground the cards sit on.
+///
+/// Not `systemGroupedBackground`, which in dark appearance is pure black.
+/// Pure black is a colour choice rather than the absence of one, and it
+/// flattens the step between the page and the cards on it into a hard
+/// edge. #141417 is the same value the desktop palette uses, so the two
+/// applications are the same shade rather than nearly.
+extension ShapeStyle where Self == Color {
+    static var ground: Color { Color("Ground") }
+}
+
 /// A content card with a corner radius this app chooses, rather than the
 /// one a grouped `List` section imposes.
 ///
