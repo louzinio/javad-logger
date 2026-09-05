@@ -3,7 +3,6 @@ import SwiftUI
 /// One file per session, and the header says what is in it.
 struct FilesView: View {
     @Environment(AppModel.self) private var model
-    @State private var refresh = UUID()
 
     var body: some View {
         NavigationStack {
@@ -20,14 +19,15 @@ struct FilesView: View {
                     }
                     .onDelete { offsets in
                         for index in offsets { model.delete(model.files[index]) }
-                        refresh = UUID()
                     }
                 }
             }
-            .id(refresh)
             .navigationTitle("Files")
             .toolbar { EditButton() }
-            .refreshable { refresh = UUID() }
+            // The list is a stored property now, so appearing is enough to
+            // pick up a file written while another tab was in front.
+            .onAppear { model.refreshFiles() }
+            .refreshable { model.refreshFiles() }
             .overlay(alignment: .bottom) {
                 Text("An empty cell means “not reported”, never zero. A missing velocity component is not a stationary receiver.")
                     .font(.caption)

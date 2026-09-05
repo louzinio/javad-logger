@@ -10,7 +10,10 @@ struct JavadLoggerApp: App {
         WindowGroup {
             RootView()
                 .environment(model)
-                .task { model.load() }
+                .task {
+                    model.load()
+                    model.refreshFiles()
+                }
         }
         .onChange(of: scenePhase) { _, phase in
             // Foreground only, and the app says so rather than failing

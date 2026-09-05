@@ -102,13 +102,32 @@ final class AppModel {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
     }
 
-    var files: [URL] {
+    /// The CSVs on disk, newest first.
+    ///
+    /// Stored rather than computed, and that is the whole point.
+    /// `@Observable` tracks stored properties; a computed one that reads
+    /// the filesystem registers no dependency, so SwiftUI never learns
+    /// that a session just wrote a file and the list stays as it was when
+    /// the screen was first built.
+    ///
+    /// The file was always there - pulling to refresh showed it, because
+    /// that was the one gesture that forced the view to be rebuilt. What
+    /// was wrong is that finishing a session and then being told "No files
+    /// yet" reads as lost data, and a list that needs a gesture to show
+    /// what the application just wrote is not a list anybody should have
+    /// to learn.
+    private(set) var files: [URL] = []
+
+    /// Re-read the directory. Called when a file closes and when the Files
+    /// screen appears, because those are the two moments the list can have
+    /// gone stale without anything else changing.
+    func refreshFiles() {
         let contents = (try? FileManager.default.contentsOfDirectory(
             at: documentsDirectory,
             includingPropertiesForKeys: [.contentModificationDateKey, .fileSizeKey],
             options: [.skipsHiddenFiles]
         )) ?? []
-        return contents
+        files = contents
             .filter { $0.pathExtension.lowercased() == "csv" }
             .sorted { lhs, rhs in
                 let l = (try? lhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
@@ -119,6 +138,7 @@ final class AppModel {
 
     func delete(_ url: URL) {
         try? FileManager.default.removeItem(at: url)
+        refreshFiles()
     }
 
     // MARK: Connecting
@@ -263,6 +283,9 @@ final class AppModel {
                     self.bytesPerSecond = 0
                     UIApplication.shared.isIdleTimerDisabled = false
                     if self.shareWhenFinished { self.fileToShare = url }
+                    // The file exists now, so the Files screen's list does
+                    // not match the disk any more.
+                    self.refreshFiles()
                 }
             }
         }
