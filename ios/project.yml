@@ -25,12 +25,38 @@ targets:
     dependencies:
       - package: GreisKit
         product: GreisKit
+    # XcodeGen *generates* this file, so everything the app needs has to be
+    # here. A hand-written Info.plist at the same path is silently
+    # overwritten — which is how the first build shipped without the local
+    # network permission and could not have reached a receiver at all.
     info:
       path: App/Info.plist
       properties:
         CFBundleDisplayName: Javad Logger
         CFBundleShortVersionString: "0.1"
         CFBundleVersion: "1"
+
+        # The prompt iOS puts up on the first socket to a device on the
+        # same Wi-Fi. Without this key the app is denied local network
+        # access outright, with no prompt and no error worth reading.
+        NSLocalNetworkUsageDescription: >-
+          Javad Logger connects to your Javad receiver over the Wi-Fi network the
+          receiver itself provides. Without this it cannot reach the receiver at all.
+
+        # Files land in the app's own container. These two are the whole of
+        # "where the CSV goes" on iOS: they put the container in the Files
+        # app under On My iPhone.
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+
+        # Without a launch screen iOS runs the app letterboxed at a legacy
+        # screen size, which looks like a bug and hides half the readings.
+        UILaunchScreen: {}
+
+        # Portrait only. The screen is a column of readings, and a rotation
+        # mid-session is a change of layout nobody asked for while watching
+        # a number.
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.example.javadlogger

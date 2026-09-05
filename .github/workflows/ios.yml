@@ -82,9 +82,24 @@ jobs:
           cd ..
           ls -lh JavadLogger.ipa
 
+      # The first build shipped without the local network permission,
+      # because a hand-written Info.plist at the path XcodeGen generates is
+      # silently overwritten. An app that cannot reach a receiver is not a
+      # build failure, so assert on the keys instead.
+      - name: Check the built app has the keys it cannot run without
+        working-directory: ios
+        run: |
+          PLIST=payload/Payload/JavadLogger.app/Info.plist
+          for key in NSLocalNetworkUsageDescription UIFileSharingEnabled LSSupportsOpeningDocumentsInPlace; do
+            /usr/libexec/PlistBuddy -c "Print :$key" "$PLIST" >/dev/null \
+              || { echo "::error::$key is missing from the built Info.plist"; exit 1; }
+          done
+          echo "local network, file sharing and open-in-place are all present"
+
       - uses: actions/upload-artifact@v4
         with:
           name: JavadLogger-unsigned-ipa
           path: ios/JavadLogger.ipa
           if-no-files-found: error
           retention-days: 30
+
