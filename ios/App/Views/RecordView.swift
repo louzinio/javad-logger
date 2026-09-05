@@ -85,6 +85,7 @@ struct RecordView: View {
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
+                        .tint(.accentColor)
                     }
 
                     CardHeader(title: "Sent to the receiver")

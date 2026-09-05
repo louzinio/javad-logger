@@ -28,6 +28,7 @@ struct LogView: View {
                         get: { model.shareWhenFinished },
                         set: { model.shareWhenFinished = $0 }
                     ))
+                    .tint(.accentColor)
                 } header: {
                     Text("Where it goes")
                 } footer: {
@@ -74,6 +75,11 @@ private struct MessageRow: View {
                 }
             }
             .disabled(message.mandatory)
+            // A Toggle ignores the accent colour and paints its on-state with
+            // the system green, which put two different greens side by side on
+            // the same screen. Tinting it is the only way to make it wear the
+            // brand's.
+            .tint(.accentColor)
 
             // A derived entry has no rate to choose: it is computed from a
             // message that is already arriving, so it arrives exactly as

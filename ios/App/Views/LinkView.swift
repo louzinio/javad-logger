@@ -60,6 +60,7 @@ struct LinkView: View {
 
                 Section {
                     Toggle("Replay a recorded stream", isOn: $model.link.useReplay)
+                        .tint(.accentColor)
                 } header: {
                     Text("Without a receiver")
                 } footer: {
