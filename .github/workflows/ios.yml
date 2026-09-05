@@ -19,12 +19,15 @@ concurrency:
 jobs:
   test:
     name: GreisKit tests
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
 
       - name: Show the toolchain
-        run: swift --version && xcodebuild -version
+        run: |
+          swift --version
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i ios || true
 
       # The part that needs no simulator and no device: the checksum, the
       # framing, the carry-forward, the CSV header rules, and a whole
@@ -41,9 +44,16 @@ jobs:
   build:
     name: Unsigned .ipa
     needs: test
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
+
+      # The SDK decides how the app looks. Built against iOS 18 an app
+      # keeps the old flat tab bar and tighter corners even on iOS 26;
+      # Liquid Glass arrives by rebuilding against the iOS 26 SDK, not
+      # by asking for it in code.
+      - name: Show the SDK this will build against
+        run: xcodebuild -version && xcodebuild -showsdks | grep -i iphoneos
 
       - name: Install XcodeGen
         run: brew install xcodegen
