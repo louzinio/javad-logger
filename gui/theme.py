@@ -155,7 +155,7 @@ LIGHT = Palette(
 
 DARK = Palette(
     name="dark",
-    page="#000000",
+    page="#141417",
     card="#1c1c1e",
     card_raised="#242426",
     fill="#2c2c2e",
@@ -459,7 +459,10 @@ QCheckBox::indicator {
 QCheckBox::indicator:checked {
     background-color: $accent;
     border-color: $accent;
-    image: url(:/qt-project.org/styles/commonstyle/images/standardbutton-apply-16.png);
+    /* No image. The tick is painted by gui.controls.TickCheckBox: the
+       only mark a stylesheet can put in a box is a borrowed pixmap, and
+       the one Qt ships here is a dialog button's icon at a fixed 16 px
+       with a palette of its own. */
 }
 
 QCheckBox::indicator:disabled {

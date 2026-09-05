@@ -12,6 +12,6 @@ before any package is importable.
 
 from __future__ import annotations
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 APPLICATION_NAME = "Javad Logger"

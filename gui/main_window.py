@@ -65,6 +65,7 @@ from device.serial_port import available_ports
 from device.session import LoggingSession, SessionConfig
 from device.wifi import WiFiProbe, WiFiSetup
 from gui import appearance, motion, theme
+from gui.controls import TickCheckBox
 from greis.catalog import CATALOG, PERIOD_CHOICES_S, LogMessage, period_label
 from greis.commands import DEFAULT_ACCESS_POINT_IP, DEFAULT_TCP_PORT, suggested_ssid
 from greis.epoch import JavadEpoch, now_utc
@@ -354,7 +355,7 @@ class _MessageRow(QWidget):
         self.setObjectName("messageRow")
         self.setToolTip(message.description)
 
-        self._checkbox = QCheckBox(f"{message.label}  [{message.code}]", self)
+        self._checkbox = TickCheckBox(f"{message.label}  [{message.code}]", self)
         self._checkbox.setChecked(True)
 
         self._combo = QComboBox(self)
@@ -384,6 +385,10 @@ class _MessageRow(QWidget):
         layout.setSpacing(8)
         layout.addWidget(self._checkbox, 1)
         layout.addWidget(self._combo, 0)
+
+    def apply_palette(self, palette: theme.Palette) -> None:
+        """The tick is painted, so its colour cannot come from the sheet."""
+        self._checkbox.set_tick_colours(palette.on_accent, palette.card)
 
     @property
     def is_selected(self) -> bool:
@@ -603,6 +608,7 @@ class MainWindow(QMainWindow):
         card.body.setSpacing(theme.SPACE_1)
         for message in CATALOG:
             row = _MessageRow(message, card.frame)
+            row.apply_palette(self._palette)
             self._message_rows.append(row)
             card.body.addWidget(row)
         return card
@@ -839,14 +845,18 @@ class MainWindow(QMainWindow):
         """Move everything a stylesheet cannot reach to the other appearance.
 
         The sheet itself is set on the application, so the colours of every
-        widget follow from one call there. Two things do not: a card's
-        shadow, which is a graphics effect rather than a style rule, and the
-        live dot, which paints itself. Both are held for exactly this.
+        widget follow from one call there. Three things do not: a card's
+        shadow, which is a graphics effect rather than a style rule, the
+        live dot, which paints itself, and the tick in a checkbox, which is
+        painted for the reasons in :mod:`gui.controls`. All three are held
+        for exactly this.
         """
         self._palette = palette
         for shadow in self._shadows:
             appearance.recolour_shadow(shadow, palette)
         self._live_dot.set_colour(QColor(palette.live))
+        for row in self._message_rows:
+            row.apply_palette(palette)
 
     def showEvent(self, event: QShowEvent) -> None:  # noqa: N802 - Qt's spelling
         """Bring the window up rather than snapping it on.
