@@ -64,6 +64,7 @@ targets:
         SWIFT_VERSION: "6.0"
         TARGETED_DEVICE_FAMILY: "1"   # iPhone only
         ENABLE_USER_SCRIPT_SANDBOXING: YES
-        # Uncomment once you have an iOS 26 SDK to build against, and see
-        # App/Glass.swift — it is the only file that changes.
-        # SWIFT_ACTIVE_COMPILATION_CONDITIONS: USE_LIQUID_GLASS
+        # The runner builds against the iOS 26 SDK, so the real glass API is
+        # available. See App/Glass.swift — still the only file that knows
+        # about it.
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: USE_LIQUID_GLASS

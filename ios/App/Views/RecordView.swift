@@ -3,10 +3,15 @@ import GreisKit
 
 /// Rows, the latest epoch, and the pulse.
 ///
-/// There is exactly one moving thing on this screen and it reports
-/// something: the dot beats once per epoch, which answers "is anything
-/// arriving *right now*" faster than watching a number for a few seconds
-/// does. A receiver that has gone quiet leaves it dark.
+/// Built from `Card` rather than from a grouped `List`, because a list
+/// style does not let its corner radius be chosen and the rounding was the
+/// visible difference from the design. The settings screens stay as forms -
+/// they are settings - but this screen is a readout.
+///
+/// There is exactly one moving thing on it and it reports something: the
+/// dot beats once per epoch, which answers "is anything arriving *right
+/// now*" faster than watching a number for a few seconds does. A receiver
+/// that has gone quiet leaves it still.
 struct RecordView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -19,30 +24,83 @@ struct RecordView: View {
         @Bindable var model = model
 
         NavigationStack {
-            List {
-                sessionSection
+            ScrollView {
+                VStack(spacing: 0) {
+                    sessionCard
 
-                if let error = model.lastError {
-                    Section {
-                        Text(error).font(.footnote).foregroundStyle(.secondary)
-                    } header: {
-                        Label("Stopped", systemImage: "exclamationmark.triangle")
+                    if let error = model.lastError {
+                        CardHeader(title: "Stopped")
+                        Card(radius: 22) {
+                            Text(error)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
+
+                    CardHeader(title: "Position", code: "PG")
+                    Card(radius: 22) {
+                        CardRow(label: "Latitude", first: true) { value(model.latest?.latitudeDeg.fixed(9, suffix: "°")) }
+                        CardRow(label: "Longitude") { value(model.latest?.longitudeDeg.fixed(9, suffix: "°")) }
+                        CardRow(label: "Altitude") { value(model.latest?.altitudeM.fixed(4, suffix: " m")) }
+                        CardRow(label: "Position RMS") { value(model.latest?.posRmsM.fixed(4, suffix: " m")) }
+                    }
+
+                    CardHeader(title: "Velocity", code: "VG")
+                    Card(radius: 22) {
+                        CardRow(label: "North", first: true) { value(model.latest?.velNorthMps.fixed(4)) }
+                        CardRow(label: "East") { value(model.latest?.velEastMps.fixed(4)) }
+                        CardRow(label: "Up") { value(model.latest?.velUpMps.fixed(4)) }
+                        CardRow(label: "Ground speed") { value(model.latest?.velGroundMps.fixed(4, suffix: " m/s")) }
+                    }
+
+                    CardHeader(title: "Satellites", code: "NP")
+                    Card(radius: 22) {
+                        CardRow(label: "GPS", first: true) { value(model.latest?.svGPS.map(String.init)) }
+                        CardRow(label: "GLONASS") { value(model.latest?.svGLONASS.map(String.init)) }
+                        CardRow(label: "Galileo") { value(model.latest?.svGalileo.map(String.init)) }
+                        CardRow(label: "BeiDou") { value(model.latest?.svBeiDou.map(String.init)) }
+                        CardRow(label: "Total") { value(model.latest?.svTotal.map(String.init)) }
+                    }
+
+                    CardHeader(title: "Socket")
+                    Card(radius: 22) {
+                        CardRow(label: "Throughput", first: true) {
+                            value((model.bytesPerSecond / 1024).fixed(1) + " kB/s")
+                        }
+                        CardRow(label: "Since last byte") {
+                            value(model.secondsSinceLastByte.fixed(2) + " s")
+                        }
+                    }
+                    CardFooter(text: "A receiver that has gone quiet and a socket that has dropped look identical to the parser, so both are reported: the dot stops beating and the gap keeps climbing.")
+
+                    CardHeader(title: "While recording")
+                    Card(radius: 22) {
+                        Toggle(isOn: $model.keepScreenAwake) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Keep the screen awake")
+                                Text("iOS suspends a backgrounded app and closes its sockets, which ends the file.")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+
+                    CardHeader(title: "Sent to the receiver")
+                    Card(radius: 22) {
+                        Text(commandText)
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    CardFooter(text: "dm again on Stop, so the receiver is not left streaming into a socket nobody is reading. Nothing else is touched: not PPP, not the corrections, not base or rover mode, and nothing under /par/net.")
+
+                    Color.clear.frame(height: 28)
                 }
-
-                positionSection
-                velocitySection
-                satellitesSection
-                socketSection
-
-                Section {
-                    Toggle("Keep the screen awake", isOn: $model.keepScreenAwake)
-                } footer: {
-                    Text("iOS suspends a backgrounded app and closes its sockets, which ends the file. Leaving the app while recording stops the session deliberately, so the rows already written are complete.")
-                }
-
-                commandsSection
             }
+            .background(Color(.systemGroupedBackground))
             .navigationTitle("Recording")
             .onReceive(tick) { _ in
                 guard let started = model.startedAt, model.isRecording else { return }
@@ -55,10 +113,13 @@ struct RecordView: View {
         }
     }
 
-    // MARK: Sections
+    // MARK: The session
 
-    private var sessionSection: some View {
-        Section {
+    /// The one card that floats: it is the session's own chrome, and the
+    /// control that ends the session belongs in it rather than hovering
+    /// over readings it has nothing to do with.
+    private var sessionCard: some View {
+        Card(radius: 30, glass: true) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
                     Label {
@@ -68,8 +129,6 @@ struct RecordView: View {
                         Circle()
                             .fill(model.isRecording ? Color.green : Color.secondary)
                             .frame(width: 8, height: 8)
-                            // The pulse: one ring per epoch, and nothing
-                            // else on this screen moves.
                             .scaleEffect(beat && model.isRecording ? 1.35 : 1.0)
                             .animation(.settle, value: beat)
                     }
@@ -88,6 +147,10 @@ struct RecordView: View {
                     Text("rows written").foregroundStyle(.secondary)
                 }
 
+                Text(model.link.useReplay ? "Replaying a recorded stream" : "\(model.receiverModel ?? "Receiver") · \(model.link.host):\(model.link.port)")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+
                 Button(role: model.isRecording ? .destructive : nil) {
                     if model.isRecording { model.stopRecording() }
                     else { model.startRecording(); elapsed = 0 }
@@ -95,12 +158,10 @@ struct RecordView: View {
                     Text(model.isRecording ? "Stop and close the file" : "Start a new file")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.borderedProminent)
                 .controlSize(.large)
+                .buttonBorderShape(.capsule)
 
-                // Offered rather than presented: a share sheet that appears
-                // by itself the moment a file closes covers the row count
-                // somebody was watching.
                 if let url = model.fileToShare, !model.isRecording {
                     ShareLink(item: url) {
                         Label("Share \(url.lastPathComponent)", systemImage: "square.and.arrow.up")
@@ -108,66 +169,15 @@ struct RecordView: View {
                     }
                 }
             }
-            .padding(.vertical, 4)
         }
+        .padding(.top, 4)
     }
 
-    private var positionSection: some View {
-        Section {
-            ValueRow(label: "Latitude", value: model.latest?.latitudeDeg.fixed(9, suffix: "°"))
-            ValueRow(label: "Longitude", value: model.latest?.longitudeDeg.fixed(9, suffix: "°"))
-            ValueRow(label: "Altitude", value: model.latest?.altitudeM.fixed(4, suffix: " m"))
-            ValueRow(label: "Position RMS", value: model.latest?.posRmsM.fixed(4, suffix: " m"))
-        } header: {
-            HStack(spacing: 6) { Text("Position"); CodeChip(code: "PG") }
-        }
-    }
-
-    private var velocitySection: some View {
-        Section {
-            ValueRow(label: "North", value: model.latest?.velNorthMps.fixed(4))
-            ValueRow(label: "East", value: model.latest?.velEastMps.fixed(4))
-            ValueRow(label: "Up", value: model.latest?.velUpMps.fixed(4))
-            ValueRow(label: "Ground speed", value: model.latest?.velGroundMps.fixed(4, suffix: " m/s"))
-        } header: {
-            HStack(spacing: 6) { Text("Velocity"); CodeChip(code: "VG") }
-        }
-    }
-
-    private var satellitesSection: some View {
-        Section {
-            ValueRow(label: "GPS", value: model.latest?.svGPS.map(String.init))
-            ValueRow(label: "GLONASS", value: model.latest?.svGLONASS.map(String.init))
-            ValueRow(label: "Galileo", value: model.latest?.svGalileo.map(String.init))
-            ValueRow(label: "BeiDou", value: model.latest?.svBeiDou.map(String.init))
-            ValueRow(label: "Total", value: model.latest?.svTotal.map(String.init))
-        } header: {
-            HStack(spacing: 6) { Text("Satellites"); CodeChip(code: "NP") }
-        }
-    }
-
-    private var socketSection: some View {
-        Section {
-            ValueRow(label: "Throughput", value: (model.bytesPerSecond / 1024).fixed(1) + " kB/s")
-            ValueRow(label: "Since last byte", value: model.secondsSinceLastByte.fixed(2) + " s")
-        } header: {
-            Text("Socket")
-        } footer: {
-            Text("A receiver that has gone quiet and a socket that has dropped look identical to the parser, so both are reported: the dot stops beating and the gap keeps climbing.")
-        }
-    }
-
-    private var commandsSection: some View {
-        Section {
-            Text(commandText)
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(.secondary)
-                .textSelection(.enabled)
-        } header: {
-            Text("Sent to the receiver")
-        } footer: {
-            Text("`dm` again on Stop, so the receiver is not left streaming into a socket nobody is reading. Nothing else is touched: not PPP, not the corrections, not base or rover mode, and nothing under /par/net.")
-        }
+    private func value(_ text: String?) -> some View {
+        Text(text ?? "—")
+            .font(.system(.subheadline, design: .monospaced))
+            .monospacedDigit()
+            .foregroundStyle(text == nil ? .tertiary : .primary)
     }
 
     private var commandText: String {
