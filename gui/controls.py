@@ -16,8 +16,11 @@ resource path and a scaling problem.
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
 from PySide6.QtCore import QPointF, QRect, Qt
-from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen
+from PySide6.QtGui import QColor, QIcon, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QCheckBox, QStyle, QStyleOptionButton, QWidget
 
 
@@ -86,3 +89,25 @@ class TickCheckBox(QCheckBox):
         painter.setPen(pen)
         painter.drawPath(path)
         painter.end()
+
+
+def application_icon() -> QIcon:
+    """The application's icon, wherever it is being run from.
+
+    Two different places, because a frozen build is not a source tree.
+    PyInstaller unpacks bundled data into a temporary directory and names
+    it ``sys._MEIPASS``; run from source the file simply sits in the
+    repository. Neither path is a guess - the first is PyInstaller's
+    documented contract and the second is where the generator writes it.
+
+    A missing icon returns an empty ``QIcon`` rather than raising. The
+    window is perfectly usable without one, and refusing to start over a
+    decoration would be the wrong trade.
+    """
+    if getattr(sys, "frozen", False):
+        root = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
+    else:
+        root = Path(__file__).resolve().parents[1]
+
+    path = root / "assets" / "javad-logger.ico"
+    return QIcon(str(path)) if path.exists() else QIcon()

@@ -31,6 +31,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 
 from gui import appearance, theme
+from gui.controls import application_icon
 from gui.main_window import MainWindow, default_output_directory
 
 from version import APPLICATION_NAME, __version__
@@ -91,6 +92,9 @@ def main() -> int:
 
     app = QApplication(sys.argv)
     app.setApplicationName(APPLICATION_NAME)
+    # On the application as well as the window: the folder chooser and
+    # any warning box are Qt's own dialogs and take their icon from here.
+    app.setWindowIcon(application_icon())
     # Fusion rather than the native Windows style: the native one draws
     # combo boxes and check boxes itself and ignores several of the rules
     # in the stylesheet, which would leave the window looking half themed.

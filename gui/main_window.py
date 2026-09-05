@@ -65,7 +65,7 @@ from device.serial_port import available_ports
 from device.session import LoggingSession, SessionConfig
 from device.wifi import WiFiProbe, WiFiSetup
 from gui import appearance, motion, theme
-from gui.controls import TickCheckBox
+from gui.controls import TickCheckBox, application_icon
 from greis.catalog import CATALOG, PERIOD_CHOICES_S, LogMessage, period_label
 from greis.commands import DEFAULT_ACCESS_POINT_IP, DEFAULT_TCP_PORT, suggested_ssid
 from greis.epoch import JavadEpoch, now_utc
@@ -441,6 +441,7 @@ class MainWindow(QMainWindow):
         # the question it answers - "which build wrote this file" - is
         # usually asked of a screenshot.
         self.setWindowTitle(f"{APPLICATION_NAME} {__version__}")
+        self.setWindowIcon(application_icon())
         # A width only. An explicit minimum *height* would replace the one
         # the layout works out for itself, and the window could then be
         # dragged shorter than the panels inside it need - at which point

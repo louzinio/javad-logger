@@ -28,11 +28,12 @@ a = Analysis(
     ["main.py"],
     pathex=[],
     binaries=[],
-    # Nothing to carry: the window is built in code, the stylesheet is a
-    # Python string, and the one image the sheet asks for - the check mark
-    # in a tick box - comes out of Qt's own resource file, which is inside
-    # the Qt libraries PyInstaller already collects.
-    datas=[],
+    # One thing to carry. The window is built in code and the stylesheet
+    # is a Python string, but the application icon is a file, and the
+    # window asks for it at runtime as well as the executable wearing it.
+    # PyInstaller unpacks this into sys._MEIPASS, which is where
+    # gui.controls.application_icon looks when frozen.
+    datas=[("assets/javad-logger.ico", "assets")],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -85,6 +86,10 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    # Worn by the file itself, which is what Explorer, the taskbar and
+    # a pinned shortcut show. Separate from the icon the running window
+    # sets, and both have to be given or one of them is generic.
+    icon="assets/javad-logger.ico",
 )
 
 coll = COLLECT(
