@@ -33,8 +33,8 @@ targets:
       path: App/Info.plist
       properties:
         CFBundleDisplayName: Javad Logger
-        CFBundleShortVersionString: "0.1"
-        CFBundleVersion: "1"
+        CFBundleShortVersionString: "0.1.2"
+        CFBundleVersion: "3"
 
         # The prompt iOS puts up on the first socket to a device on the
         # same Wi-Fi. Without this key the app is denied local network
