@@ -1,0 +1,2015 @@
+<title>Javad Logger for iPhone</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+  /* ===================================================================
+     Two layers, and the whole design follows from keeping them apart.
+
+     CONTENT is opaque and scrolls: cards, lists, numbers.
+     CHROME is glass and floats above it: the nav capsule, the tab bar,
+     the sheet, the primary action. Glass never sits on glass, and glass
+     only ever covers content that is moving underneath it — which is
+     what gives it something to refract.
+     =================================================================== */
+  :root {
+    --page-bg: #e9ebf0;
+    --page-bg-2: #dee1e9;
+    --page-ink: #16181d;
+    --page-ink-dim: #5b6070;
+    --page-rule: #c8ccd6;
+
+    /* Content layer */
+    --ios-ground: #f0f1f6;
+    --ios-card: #ffffff;
+    --ios-label: #0b0c0f;
+    --ios-label-2: rgba(60, 60, 67, 0.62);
+    --ios-label-3: rgba(60, 60, 67, 0.28);
+    --ios-separator: rgba(60, 60, 67, 0.14);
+    --ios-fill: rgba(120, 120, 128, 0.10);
+    --ios-fill-2: rgba(120, 120, 128, 0.20);
+    --ios-blue: #007aff;
+    --ios-green: #34c759;
+    --ios-orange: #ff9500;
+    --ios-red: #ff3b30;
+    --card-shadow: 0 1px 3px rgba(16, 18, 30, 0.06), 0 6px 18px -10px rgba(16, 18, 30, 0.14);
+
+    /* Glass layer. Neutral: the material is defined by its edge and its
+       blur, not by a tint. Saturation is nudged only enough to keep what
+       shows through from going grey — a survey instrument has no reason
+       to be colourful. */
+    --glass-tint: linear-gradient(180deg, rgba(255, 255, 255, 0.70) 0%, rgba(255, 255, 255, 0.52) 100%);
+    --glass-blur: blur(30px) saturate(120%);
+    --glass-edge:
+      inset 0 1px 0 rgba(255, 255, 255, 0.85),
+      inset 0 0 0 0.5px rgba(60, 60, 67, 0.10);
+    --glass-lift: 0 6px 20px -8px rgba(16, 18, 30, 0.18), 0 1px 3px rgba(16, 18, 30, 0.06);
+    --glass-hairline: rgba(60, 60, 67, 0.12);
+
+    /* One neutral fill for every selected / raised control, so nothing
+       has to be coloured in to read as active. */
+    --sel-fill: rgba(120, 120, 128, 0.16);
+
+    --bezel: #1b1c20;
+    --bezel-edge: #3a3c44;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --page-bg: #121317;
+      --page-bg-2: #0b0c0f;
+      --page-ink: #f2f3f6;
+      --page-ink-dim: #8e93a3;
+      --page-rule: #2a2c33;
+
+      --ios-ground: #08090c;
+      --ios-card: #17181c;
+      --ios-label: #ffffff;
+      --ios-label-2: rgba(235, 235, 245, 0.62);
+      --ios-label-3: rgba(235, 235, 245, 0.28);
+      --ios-separator: rgba(235, 235, 245, 0.10);
+      --ios-fill: rgba(120, 120, 128, 0.20);
+      --ios-fill-2: rgba(120, 120, 128, 0.34);
+      --ios-blue: #0a84ff;
+      --ios-green: #30d158;
+      --ios-orange: #ff9f0a;
+      --ios-red: #ff453a;
+      --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+
+      --glass-tint: linear-gradient(180deg, rgba(120, 128, 148, 0.34) 0%, rgba(70, 76, 92, 0.26) 55%, rgba(90, 98, 118, 0.30) 100%);
+      --glass-blur: blur(30px) saturate(200%) brightness(1.14);
+      --glass-edge:
+        inset 0 1.2px 0 rgba(255, 255, 255, 0.34),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.10),
+        inset 1px 0 0 rgba(255, 255, 255, 0.10),
+        inset -1px 0 0 rgba(255, 255, 255, 0.10);
+      --glass-lift: 0 14px 36px -10px rgba(0, 0, 0, 0.72), 0 2px 10px -2px rgba(0, 0, 0, 0.5);
+      --glass-hairline: rgba(255, 255, 255, 0.16);
+
+      --wash-a: rgba(10, 132, 255, 0.30);
+      --wash-b: rgba(48, 209, 88, 0.20);
+
+      --bezel: #000000;
+      --bezel-edge: #45474f;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --page-bg: #121317;
+    --page-bg-2: #0b0c0f;
+    --page-ink: #f2f3f6;
+    --page-ink-dim: #8e93a3;
+    --page-rule: #2a2c33;
+
+    --ios-ground: #08090c;
+    --ios-card: #17181c;
+    --ios-label: #ffffff;
+    --ios-label-2: rgba(235, 235, 245, 0.62);
+    --ios-label-3: rgba(235, 235, 245, 0.28);
+    --ios-separator: rgba(235, 235, 245, 0.10);
+    --ios-fill: rgba(120, 120, 128, 0.20);
+    --ios-fill-2: rgba(120, 120, 128, 0.34);
+    --ios-blue: #0a84ff;
+    --ios-green: #30d158;
+    --ios-orange: #ff9f0a;
+    --ios-red: #ff453a;
+    --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+
+    --glass-tint: linear-gradient(180deg, rgba(88, 92, 104, 0.42) 0%, rgba(64, 68, 78, 0.38) 100%);
+    --glass-blur: blur(30px) saturate(130%);
+    --glass-edge:
+      inset 0 1px 0 rgba(255, 255, 255, 0.20),
+      inset 0 0 0 0.5px rgba(255, 255, 255, 0.07);
+    --glass-lift: 0 10px 28px -10px rgba(0, 0, 0, 0.66), 0 1px 3px rgba(0, 0, 0, 0.4);
+    --glass-hairline: rgba(255, 255, 255, 0.10);
+
+    --sel-fill: rgba(255, 255, 255, 0.13);
+
+    --bezel: #000000;
+    --bezel-edge: #45474f;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--page-bg);
+    color: var(--page-ink);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter",
+                 system-ui, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  .page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 24px 64px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 56px;
+    align-items: start;
+  }
+
+  @media (max-width: 1000px) {
+    .page {
+      grid-template-columns: minmax(0, 1fr);
+      justify-items: center;
+      gap: 40px;
+      padding: 28px 18px 48px;
+    }
+    .brief { order: 2; }
+    .stage { order: 1; position: static; }
+  }
+
+  /* ---------------------------- the brief ---------------------------- */
+
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--page-ink-dim);
+    margin: 0 0 14px;
+  }
+
+  h1 {
+    font-size: clamp(2rem, 3.4vw, 2.9rem);
+    line-height: 1.04;
+    letter-spacing: -0.028em;
+    font-weight: 700;
+    margin: 0 0 16px;
+    text-wrap: balance;
+  }
+
+  .brief p {
+    max-width: 62ch;
+    font-size: 15.5px;
+    line-height: 1.62;
+    color: var(--page-ink-dim);
+    margin: 0 0 14px;
+  }
+
+  .brief p strong { color: var(--page-ink); font-weight: 600; }
+
+  .brief code, .cut code, .facts code {
+    font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.88em;
+    background: var(--ios-fill);
+    padding: 1px 5px;
+    border-radius: 5px;
+    color: var(--page-ink);
+  }
+
+  h2.section {
+    margin: 36px 0 2px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--page-ink-dim);
+  }
+
+  .cut {
+    list-style: none;
+    margin: 14px 0 0;
+    padding: 0;
+    border-top: 1px solid var(--page-rule);
+  }
+
+  .cut li {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: 20px;
+    padding: 13px 0;
+    border-bottom: 1px solid var(--page-rule);
+    align-items: start;
+  }
+
+  @media (max-width: 620px) {
+    .cut li { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  }
+
+  .cut .gone {
+    font-size: 14px;
+    line-height: 1.45;
+    color: var(--page-ink-dim);
+    text-decoration: line-through;
+    text-decoration-thickness: 1px;
+  }
+
+  .cut .kept { font-size: 14px; line-height: 1.5; color: var(--page-ink); }
+  .cut .kept b { font-weight: 600; }
+  .cut .kept span { color: var(--page-ink-dim); }
+
+  /* The verified connection facts, as a spec block rather than prose */
+  .facts {
+    margin: 14px 0 0;
+    padding: 0;
+    border-top: 1px solid var(--page-rule);
+    font-size: 14px;
+  }
+
+  .facts div {
+    display: grid;
+    grid-template-columns: 132px minmax(0, 1fr);
+    gap: 16px;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--page-rule);
+  }
+
+  .facts dt {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--page-ink-dim);
+    padding-top: 2px;
+  }
+
+  .facts dd { margin: 0; line-height: 1.5; }
+  .facts dd em { font-style: normal; color: var(--page-ink-dim); }
+
+  .note {
+    margin-top: 28px;
+    padding: 16px 20px;
+    border-left: 2px solid var(--page-rule);
+  }
+
+  .note h3 { margin: 0 0 6px; font-size: 13px; font-weight: 600; color: var(--page-ink); }
+  .note p { margin: 0 0 8px; font-size: 13.5px; line-height: 1.55; }
+  .note p:last-child { margin-bottom: 0; }
+
+  /* ---------------------------- the device ---------------------------- */
+
+  .stage { position: sticky; top: 32px; }
+
+  .phone {
+    width: 390px;
+    height: 844px;
+    border-radius: 56px;
+    padding: 11px;
+    background: var(--bezel);
+    box-shadow:
+      0 0 0 1.5px var(--bezel-edge),
+      0 34px 70px -22px rgba(0, 0, 0, 0.55),
+      0 8px 22px -10px rgba(0, 0, 0, 0.35);
+    position: relative;
+  }
+
+  .screen {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    border-radius: 45px;
+    overflow: hidden;
+    background: var(--ios-ground);
+    color: var(--ios-label);
+    font-size: 17px;
+    isolation: isolate;
+  }
+
+  .island {
+    position: absolute;
+    top: 11px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 124px;
+    height: 35px;
+    border-radius: 20px;
+    background: #000;
+    z-index: 60;
+  }
+
+  .statusbar {
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 54px;
+    padding: 16px 32px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    z-index: 58;
+    pointer-events: none;
+    color: var(--ios-label);
+  }
+
+  .statusbar .icons { display: flex; align-items: center; gap: 6px; }
+
+  /* ---------------------------- glass recipe ---------------------------- */
+
+  .glass {
+    background-image: var(--glass-tint);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--glass-edge), var(--glass-lift);
+  }
+
+  /* ---------------------------- floating nav ---------------------------- */
+
+  .navbar {
+    position: absolute;
+    top: 54px;
+    left: 14px;
+    right: 14px;
+    z-index: 50;
+    height: 46px;
+    border-radius: 23px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 16px;
+    opacity: 0;
+    transform: translateY(-10px) scale(0.94);
+    pointer-events: none;
+    will-change: opacity, transform;
+  }
+
+  .navbar span {
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--ios-label);
+  }
+
+  /* ---------------------------- scroll area ---------------------------- */
+
+  .views { position: absolute; inset: 0; z-index: 10; }
+
+  .view {
+    position: absolute;
+    inset: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    /* Content runs the full height and passes under both glass capsules. */
+    padding: 62px 0 128px;
+    scrollbar-width: none;
+    will-change: opacity, transform;
+  }
+
+  .view::-webkit-scrollbar { display: none; }
+  .view[hidden] { display: none; }
+
+  .large-title {
+    font-size: 36px;
+    line-height: 1.04;
+    letter-spacing: -0.034em;
+    font-weight: 700;
+    margin: 10px 22px 4px;
+  }
+
+  .subtitle {
+    margin: 0 22px 22px;
+    font-size: 15px;
+    line-height: 1.45;
+    color: var(--ios-label-2);
+  }
+
+  .group-header {
+    margin: 26px 24px 8px;
+    font-size: 12.5px;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--ios-label-2);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .group-footer {
+    margin: 9px 24px 0;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--ios-label-2);
+  }
+
+  .group-footer code {
+    font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    font-size: 0.9em;
+  }
+
+  /* Content cards: opaque, generously rounded, never glass. */
+  .list {
+    margin: 0 14px;
+    background: var(--ios-card);
+    border-radius: 22px;
+    overflow: hidden;
+    box-shadow: var(--card-shadow);
+  }
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 18px;
+    min-height: 48px;
+    position: relative;
+    background: transparent;
+    border: 0;
+    width: 100%;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .row + .row::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 18px;
+    right: 0;
+    height: 1px;
+    background: var(--ios-separator);
+  }
+
+  .row.tappable { cursor: pointer; }
+  .row.tappable.pressed { background: var(--ios-fill); }
+  .row.tappable.pressed::before,
+  .row.tappable.pressed + .row::before { opacity: 0; }
+
+  .row:focus-visible { outline: 2px solid var(--ios-blue); outline-offset: -3px; border-radius: 14px; }
+
+  .row-text { flex: 1; min-width: 0; }
+
+  .row-title {
+    font-size: 17px;
+    letter-spacing: -0.022em;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .row-sub {
+    display: block;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--ios-label-2);
+    margin-top: 3px;
+  }
+
+  .row-value {
+    font-size: 17px;
+    letter-spacing: -0.022em;
+    color: var(--ios-label-2);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .row-value.mono {
+    font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    font-size: 15px;
+  }
+
+  .chevron { color: var(--ios-label-3); flex: none; }
+
+  .code-chip {
+    font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: var(--ios-fill);
+    color: var(--ios-label-2);
+    letter-spacing: 0;
+  }
+
+  .glyph { flex: none; color: var(--ios-label-2); }
+  .glyph.grey { color: var(--ios-label-3); }
+
+  /* ---------------------------- switch ---------------------------- */
+
+  .switch {
+    flex: none;
+    width: 51px;
+    height: 31px;
+    border-radius: 16px;
+    background: var(--ios-fill-2);
+    border: 0;
+    padding: 0;
+    position: relative;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 200ms ease;
+  }
+
+  .switch[aria-checked="true"] { background: var(--ios-green); }
+  .switch[disabled] { cursor: default; opacity: 0.5; }
+
+  .switch .knob {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 27px;
+    height: 27px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18), 0 1px 1px rgba(0, 0, 0, 0.16);
+    will-change: transform;
+  }
+
+  .switch:focus-visible { outline: 2px solid var(--ios-blue); outline-offset: 3px; }
+
+  /* ---------------------------- recording ---------------------------- */
+
+  .hero {
+    margin: 4px 14px 0;
+    background: var(--ios-card);
+    border-radius: 26px;
+    padding: 22px 22px 18px;
+    box-shadow: var(--card-shadow);
+  }
+
+  .hero-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px 5px 9px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    background: var(--ios-fill);
+    color: var(--ios-label);
+  }
+
+  /* The dot is the only green on the screen, and it means one thing:
+     epochs are arriving. */
+  .pill .dot-static {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--ios-green);
+  }
+
+  .elapsed {
+    font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ios-label-2);
+  }
+
+  .counter { display: flex; align-items: baseline; gap: 9px; margin-top: 16px; }
+
+  .counter-value {
+    font-size: 58px;
+    line-height: 0.92;
+    font-weight: 600;
+    letter-spacing: -0.048em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .counter-unit { font-size: 16px; color: var(--ios-label-2); letter-spacing: -0.01em; }
+
+  .epoch-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    padding-top: 13px;
+    border-top: 1px solid var(--ios-separator);
+    font-size: 14px;
+    color: var(--ios-label-2);
+  }
+
+  .pulse { position: relative; width: 9px; height: 9px; flex: none; }
+
+  .pulse i {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: var(--ios-green);
+    display: block;
+  }
+
+  .pulse i.ring { opacity: 0; will-change: transform, opacity; }
+  .pulse.beat i.ring { animation: ring 900ms ease-out; }
+
+  @keyframes ring {
+    from { transform: scale(1); opacity: 0.55; }
+    to   { transform: scale(3.4); opacity: 0; }
+  }
+
+  .epoch-time {
+    margin-left: auto;
+    font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ios-label);
+  }
+
+  .fields {
+    margin: 0 14px;
+    background: var(--ios-card);
+    border-radius: 22px;
+    box-shadow: var(--card-shadow);
+    overflow: hidden;
+  }
+
+  .field {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 12px 18px;
+    position: relative;
+  }
+
+  .field + .field::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 18px;
+    right: 0;
+    height: 1px;
+    background: var(--ios-separator);
+  }
+
+  .field dt { font-size: 15px; letter-spacing: -0.018em; color: var(--ios-label-2); }
+
+  /* Three components on one line outgrow the row, so that field stacks
+     rather than letting the label wrap into the number. */
+  .field.stacked { flex-direction: column; align-items: flex-start; gap: 5px; }
+
+  .field dd {
+    margin: 0;
+    font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+    color: var(--ios-label);
+    white-space: nowrap;
+  }
+
+  .sats {
+    margin: 0 14px;
+    background: var(--ios-card);
+    border-radius: 22px;
+    box-shadow: var(--card-shadow);
+    padding: 16px 18px 18px;
+  }
+
+  .sats-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 13px; }
+
+  .sats-head h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 400;
+    letter-spacing: -0.018em;
+    color: var(--ios-label-2);
+  }
+
+  .sats-total {
+    font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    font-size: 15px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .sat-row {
+    display: grid;
+    grid-template-columns: 66px minmax(0, 1fr) 24px;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 9px;
+  }
+
+  .sat-row:last-child { margin-bottom: 0; }
+  .sat-row span:first-child { font-size: 12px; letter-spacing: 0.02em; color: var(--ios-label-2); }
+
+  .bar { height: 6px; border-radius: 3px; background: var(--ios-fill); overflow: hidden; }
+
+  .bar i {
+    display: block;
+    height: 100%;
+    border-radius: 3px;
+    background: var(--ios-label-2);
+    transition: width 420ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  .sat-row span:last-child {
+    font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    color: var(--ios-label);
+  }
+
+  .wire {
+    margin: 0 14px;
+    background: var(--ios-card);
+    border-radius: 22px;
+    box-shadow: var(--card-shadow);
+    padding: 15px 18px 16px;
+  }
+
+  .wire h3 {
+    margin: 0 0 10px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ios-label-2);
+  }
+
+  .wire pre {
+    margin: 0;
+    font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    font-size: 11.5px;
+    line-height: 1.8;
+    color: var(--ios-label-2);
+    overflow-x: auto;
+  }
+
+  .wire pre b { color: var(--ios-label); font-weight: 500; }
+
+  /* ---------------------------- the session action ----------------------------
+     Stop belongs to the session, so it lives in the session's card, under
+     the counter it ends. Floating it over the list put a control with no
+     stated owner on top of readings it had nothing to do with. */
+
+  .action {
+    display: block;
+    width: 100%;
+    margin-top: 18px;
+    padding: 13px;
+    border: 0;
+    border-radius: 16px;
+    background: var(--ios-fill);
+    font: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--ios-red);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    will-change: transform;
+  }
+
+  .action.primary { color: var(--ios-blue); }
+  .action:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+  /* ---------------------------- probe ---------------------------- */
+
+  .sweep {
+    height: 4px;
+    margin: 0 24px;
+    border-radius: 2px;
+    background: var(--ios-fill);
+    overflow: hidden;
+  }
+
+  .sweep i { display: block; height: 100%; width: 0%; background: var(--ios-label-2); border-radius: 2px; }
+
+  .sweep-label {
+    margin: 9px 24px 0;
+    font-size: 12.5px;
+    font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    color: var(--ios-label-2);
+    min-height: 17px;
+  }
+
+  /* ---------------------------- floating tab bar ---------------------------- */
+
+  .tabbar {
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: 26px;
+    z-index: 50;
+    height: 62px;
+    border-radius: 31px;
+    padding: 6px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  /* The selection is a smaller piece of glass that slides between tabs,
+     carrying its own highlight. */
+  .tab-pill {
+    position: absolute;
+    top: 6px;
+    bottom: 6px;
+    left: 6px;
+    border-radius: 25px;
+    background: var(--sel-fill);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    will-change: transform, width;
+    pointer-events: none;
+  }
+
+  .tab {
+    position: relative;
+    z-index: 1;
+    background: none;
+    border: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    font: inherit;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--ios-label-2);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    border-radius: 25px;
+  }
+
+  /* Selection is carried by the pill, so the icon only has to darken. */
+  .tab[aria-selected="true"] { color: var(--ios-label); }
+  .tab:focus-visible { outline: 2px solid var(--ios-blue); outline-offset: -3px; }
+  .tab svg { display: block; }
+
+  .home-indicator {
+    position: absolute;
+    bottom: 9px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 140px;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--ios-label);
+    opacity: 0.28;
+    z-index: 55;
+  }
+
+  /* ---------------------------- sheet ---------------------------- */
+
+  .scrim {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.32);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    opacity: 0;
+    z-index: 70;
+    will-change: opacity;
+  }
+
+  .scrim[hidden] { display: none; }
+
+  /* Inset and fully rounded — the iOS 26 sheet is an object floating in
+     the screen, not a panel welded to the bottom edge. */
+  .sheet {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    z-index: 71;
+    border-radius: 34px;
+    padding-bottom: 14px;
+    max-height: 74%;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(110%);
+    will-change: transform;
+    touch-action: none;
+  }
+
+  .sheet[hidden] { display: none; }
+
+  .grabber {
+    width: 38px;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--ios-label-3);
+    margin: 9px auto 0;
+    flex: none;
+  }
+
+  .sheet-head { padding: 12px 22px 12px; flex: none; }
+
+  .sheet-head h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.024em;
+    text-align: center;
+    color: var(--ios-label);
+  }
+
+  .sheet-head p {
+    margin: 5px 0 0;
+    font-size: 13px;
+    line-height: 1.42;
+    color: var(--ios-label-2);
+    text-align: center;
+  }
+
+  .sheet-list { overflow-y: auto; padding: 2px 10px 0; scrollbar-width: none; }
+  .sheet-list::-webkit-scrollbar { display: none; }
+
+  .opt {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 13px 14px;
+    background: none;
+    border: 0;
+    border-radius: 16px;
+    font: inherit;
+    font-size: 17px;
+    letter-spacing: -0.022em;
+    color: var(--ios-label);
+    cursor: pointer;
+    position: relative;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .opt + .opt::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 14px;
+    right: 14px;
+    height: 1px;
+    background: var(--glass-hairline);
+  }
+
+  .opt.pressed { background: rgba(255, 255, 255, 0.22); }
+  .opt.pressed::before, .opt.pressed + .opt::before { opacity: 0; }
+
+  .opt[aria-checked="true"] {
+    background: var(--sel-fill);
+    color: var(--ios-label);
+    font-weight: 600;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.30);
+  }
+
+  .opt[aria-checked="true"]::before, .opt[aria-checked="true"] + .opt::before { opacity: 0; }
+  .opt:focus-visible { outline: 2px solid var(--ios-blue); outline-offset: -3px; }
+
+  .opt .hz {
+    font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    font-size: 13px;
+    color: var(--ios-label-2);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .opt[aria-checked="true"] .hz { color: var(--ios-label); }
+
+  /* ---------------------------- files ---------------------------- */
+
+  .file-title {
+    font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    font-size: 14px;
+    letter-spacing: -0.01em;
+  }
+
+  .badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 7px;
+    background: var(--ios-fill);
+    color: var(--ios-label-2);
+    letter-spacing: 0.01em;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pulse.beat i.ring { animation: none; }
+    .pulse i.ring { opacity: 0; }
+    .bar i { transition: none; }
+  }
+
+  /* Reduced transparency is the setting that turns glass into a solid
+     surface with a defined border, which is exactly what it is for. */
+  @media (prefers-reduced-transparency: reduce) {
+    .glass {
+      background-image: none;
+      background-color: var(--ios-card);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      box-shadow: 0 0 0 1px var(--ios-separator), var(--glass-lift);
+    }
+  }
+</style>
+
+<div class="page">
+  <div class="brief">
+    <p class="eyebrow">Design study · Javad Logger</p>
+    <h1>The logger, reduced to what an iPhone can actually do</h1>
+    <p>
+      The desktop application opens a COM port, sweeps nine baud rates until a GREIS
+      checksum verifies, and writes CSV to a folder you choose. An iPhone can do
+      <strong>none of those three things</strong> — so this build does not pretend to.
+      Everything with no iOS route has been taken out rather than drawn as a control that
+      would never work.
+    </p>
+    <p>
+      What is left is the part that was never about the cable: a receiver reached over
+      <strong>TCP on its own Wi-Fi access point</strong>, the same five GREIS messages at
+      the same twelve periods, the same three commands on the wire, and one CSV row per
+      position epoch.
+    </p>
+
+    <h2 class="section">The connection, from JAVAD's own iOS manual</h2>
+    <dl class="facts">
+      <div>
+        <dt>Address</dt>
+        <dd><code>192.168.0.1</code> <em>— the receiver's own address in adhoc mode, and its gateway.</em></dd>
+      </div>
+      <div>
+        <dt>Port</dt>
+        <dd><code>8002</code> <em>— set by <code>set,/par/net/tcp/port,8002</code>. Ports 8010–8014 are a different job: RTN correction streams, not this.</em></dd>
+      </div>
+      <div>
+        <dt>Password</dt>
+        <dd><code>set,/par/net/passwd,"1234"</code> <em>— guards TCP and FTP together.</em></dd>
+      </div>
+      <div>
+        <dt>Access point</dt>
+        <dd><code>set,/par/net/wlan/mode,adhoc</code>, an SSID via <code>/par/net/wlan/ap/ssid</code> (<code>TRIUMPH2_008</code> in the manual), DHCP server on, client off — then <code>set,reset,yes</code>, because Wi-Fi changes do not take effect until the receiver restarts.</dd>
+      </div>
+    </dl>
+
+    <h2 class="section">Taken out, and what replaced it</h2>
+    <ul class="cut">
+      <li>
+        <span class="gone">USB and Bluetooth serial to a COM port</span>
+        <span class="kept"><b>TCP to the receiver's Wi-Fi access point.</b>
+        <span>iOS will not open a Bluetooth SPP link without MFi certification, and has no
+        serial API at all. Triumph-1, 1M and 2 all raise an adhoc AP; the phone joins it and
+        opens a socket.</span></span>
+      </li>
+      <li>
+        <span class="gone">Sweeping 115200, 460800, 230400 … until something answers</span>
+        <span class="kept"><b>A host and a port.</b>
+        <span>There is no baud rate on a socket, and the address is not a guess — it is a
+        documented default the receiver was configured with.</span></span>
+      </li>
+      <li>
+        <span class="gone">Enumerating COM ports and naming each one</span>
+        <span class="kept"><b>One probe against one address.</b>
+        <span>The proof did not change: a verified rotate-and-XOR checksum, or a reply to
+        <code>print,/par/rcv/model:on</code> from a link that stayed quiet. Only the
+        transport underneath it did.</span></span>
+      </li>
+      <li>
+        <span class="gone">Choosing a folder for the CSV</span>
+        <span class="kept"><b>The app's own container, visible in Files.</b>
+        <span>iOS has no free filesystem. Files land under On My iPhone › Javad Logger, and
+        leave through the share sheet.</span></span>
+      </li>
+      <li>
+        <span class="gone">Recording while the window is behind another one</span>
+        <span class="kept"><b>Foreground only, with the screen kept awake.</b>
+        <span>iOS suspends a backgrounded app and closes its sockets. The app says so and
+        holds the idle timer instead of failing quietly.</span></span>
+      </li>
+    </ul>
+
+    <div class="note">
+      <h3>Two iOS facts the design has to admit</h3>
+      <p>
+        <strong>Local Network permission.</strong> The first socket to a device on the same
+        Wi-Fi triggers a system prompt. Denied once, it can only be re-granted in Settings —
+        so the app asks at the moment the user taps Connect, when the reason is obvious,
+        rather than at launch.
+      </p>
+      <p>
+        <strong>The receiver's AP has no internet.</strong> iOS says so on joining, will
+        quietly prefer cellular for anything it can, and may offer to leave the network. The
+        Link tab reports which network the socket is actually on.
+      </p>
+    </div>
+
+    <p style="margin-top:26px">
+      Numbers on screen are a plausible RTK Fixed session on a bench, not live data. The five
+      messages, their column counts, the twelve periods and the nine <code>solType</code>
+      labels come from <code>greis/catalog.py</code> and <code>greis/epoch.py</code>
+      unchanged.
+    </p>
+  </div>
+
+  <div class="stage">
+    <div class="phone">
+      <div class="screen" id="screen">
+        <div class="island"></div>
+        <div class="statusbar">
+          <span id="clock">14:12</span>
+          <span class="icons" aria-hidden="true">
+            <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1" opacity="0.35"/></svg>
+            <svg width="17" height="12" viewBox="0 0 17 12" fill="currentColor"><path d="M8.5 11.2 6.3 8.9a3.1 3.1 0 0 1 4.4 0Zm4-4.2a8.8 8.8 0 0 0-8 0L3 5.4a11 11 0 0 1 11 0Zm3-3.1a13 13 0 0 0-14 0L0 2.3a15.2 15.2 0 0 1 17 0Z"/></svg>
+            <svg width="26" height="12" viewBox="0 0 26 12" fill="none"><rect x="0.5" y="0.5" width="22" height="11" rx="3.2" stroke="currentColor" opacity="0.4"/><rect x="2" y="2" width="15" height="8" rx="2" fill="currentColor"/><path d="M24 4.2v3.6a2 2 0 0 0 0-3.6Z" fill="currentColor" opacity="0.4"/></svg>
+          </span>
+        </div>
+
+        <div class="navbar glass" id="navbar" aria-hidden="true"><span id="navbar-title">Recording</span></div>
+
+        <div class="views">
+
+          <!-- ============================ RECORD ============================ -->
+          <section class="view" id="view-record" data-title="Recording" aria-label="Recording">
+            <h1 class="large-title">Recording</h1>
+            <p class="subtitle" id="record-sub">TRIUMPH-2 over Wi-Fi · 192.168.0.1:8002</p>
+
+            <div class="hero">
+              <div class="hero-top">
+                <span class="pill" id="sol-pill"><span class="dot-static"></span><span id="sol-label">RTK Fixed</span></span>
+                <span class="elapsed" id="elapsed">00:04:31</span>
+              </div>
+              <div class="counter">
+                <span class="counter-value" id="rows">2 714</span>
+                <span class="counter-unit">rows written</span>
+              </div>
+              <div class="epoch-line">
+                <span class="pulse" id="pulse"><i class="ring"></i><i></i></span>
+                <span>Latest epoch</span>
+                <span class="epoch-time" id="epoch-time">14:12:07.000</span>
+              </div>
+              <button class="action" type="button" id="stop-btn"><span>Stop and close the file</span></button>
+            </div>
+
+            <p class="group-header">Position <span class="code-chip">[PG]</span></p>
+            <dl class="fields">
+              <div class="field"><dt>Latitude</dt><dd id="f-lat">32.081234567°</dd></div>
+              <div class="field"><dt>Longitude</dt><dd id="f-lon">34.780987654°</dd></div>
+              <div class="field"><dt>Altitude</dt><dd id="f-alt">42.8137 m</dd></div>
+              <div class="field"><dt>Position RMS</dt><dd id="f-rms">0.0142 m</dd></div>
+            </dl>
+
+            <p class="group-header">Velocity <span class="code-chip">[VG]</span></p>
+            <dl class="fields">
+              <div class="field stacked"><dt>North · East · Up, m/s</dt><dd id="f-vel">0.0031 · −0.0018 · 0.0007</dd></div>
+              <div class="field"><dt>Ground speed</dt><dd id="f-grd">0.0036 m/s</dd></div>
+            </dl>
+
+            <p class="group-header">Satellites <span class="code-chip">[NP]</span></p>
+            <div class="sats">
+              <div class="sats-head">
+                <h3>In the solution</h3>
+                <span class="sats-total" id="sv-total">32</span>
+              </div>
+              <div class="sat-row"><span>GPS</span><span class="bar"><i id="b-gps" style="width:85%"></i></span><span id="v-gps">11</span></div>
+              <div class="sat-row"><span>GLONASS</span><span class="bar"><i id="b-glo" style="width:62%"></i></span><span id="v-glo">8</span></div>
+              <div class="sat-row"><span>Galileo</span><span class="bar"><i id="b-gal" style="width:54%"></i></span><span id="v-gal">7</span></div>
+              <div class="sat-row"><span>BeiDou</span><span class="bar"><i id="b-bds" style="width:46%"></i></span><span id="v-bds">6</span></div>
+            </div>
+
+            <p class="group-header">Socket</p>
+            <dl class="fields">
+              <div class="field"><dt>Throughput</dt><dd id="f-bps">3.1 kB/s</dd></div>
+              <div class="field"><dt>Since last byte</dt><dd id="f-gap">0.21 s</dd></div>
+            </dl>
+            <p class="group-footer">
+              A receiver that has gone quiet and a socket that has dropped look identical on
+              the wire, so both are reported: the dot stops pulsing and the gap keeps
+              climbing.
+            </p>
+
+            <p class="group-header">While recording</p>
+            <div class="list">
+              <div class="row">
+                <span class="row-text">
+                  <span class="row-title">Keep the screen awake</span>
+                  <span class="row-sub">iOS suspends a backgrounded app and closes its sockets, which ends the file.</span>
+                </span>
+                <button class="switch" role="switch" aria-checked="true" aria-label="Keep the screen awake"><span class="knob"></span></button>
+              </div>
+            </div>
+
+            <p class="group-header">Sent to the receiver</p>
+            <div class="wire">
+              <h3>This session, in order</h3>
+<pre><b>dm</b>
+<b>em</b>,,/msg/jps/<b>PG</b>:{1,0,0,0}
+<b>em</b>,,/msg/jps/<b>ST</b>:{1,0,0,0}
+<b>em</b>,,/msg/jps/<b>NP</b>:{10,0,0,0}</pre>
+            </div>
+            <p class="group-footer">
+              <code>dm</code> again on Stop, so the receiver is not left streaming into a
+              socket nobody is reading.
+            </p>
+          </section>
+
+          <!-- ============================ LINK ============================ -->
+          <section class="view" id="view-link" data-title="Link" hidden aria-label="Link">
+            <h1 class="large-title">Link</h1>
+            <p class="subtitle">One receiver, over TCP, on the Wi-Fi network it raises itself.</p>
+
+            <p class="group-header">Wi-Fi</p>
+            <div class="list">
+              <div class="row">
+                <span class="glyph" aria-hidden="true"><svg width="19" height="14" viewBox="0 0 17 12" fill="currentColor"><path d="M8.5 11.2 6.3 8.9a3.1 3.1 0 0 1 4.4 0Zm4-4.2a8.8 8.8 0 0 0-8 0L3 5.4a11 11 0 0 1 11 0Zm3-3.1a13 13 0 0 0-14 0L0 2.3a15.2 15.2 0 0 1 17 0Z"/></svg></span>
+                <span class="row-text">
+                  <span class="row-title">TRIUMPH2_008</span>
+                  <span class="row-sub">Joined · no internet, which is normal for a receiver's own access point</span>
+                </span>
+              </div>
+              <div class="row">
+                <span class="row-text">
+                  <span class="row-title">Local Network access</span>
+                  <span class="row-sub">Asked for at Connect, not at launch, so the reason is on screen when the prompt is.</span>
+                </span>
+                <span class="row-value">Granted</span>
+              </div>
+            </div>
+
+            <p class="group-header">Address</p>
+            <div class="list">
+              <button class="row tappable" type="button">
+                <span class="row-text"><span class="row-title">Host</span></span>
+                <span class="row-value mono">192.168.0.1</span>
+                <span class="chevron" aria-hidden="true"><svg width="7" height="12" viewBox="0 0 7 12" fill="none"><path d="M1 1l5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+              </button>
+              <button class="row tappable" type="button">
+                <span class="row-text">
+                  <span class="row-title">Port</span>
+                  <span class="row-sub">The receiver's TCP server port, <code style="font-family:'JetBrains Mono',monospace">/par/net/tcp/port</code>.</span>
+                </span>
+                <span class="row-value mono">8002</span>
+                <span class="chevron" aria-hidden="true"><svg width="7" height="12" viewBox="0 0 7 12" fill="none"><path d="M1 1l5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+              </button>
+              <button class="row tappable" type="button">
+                <span class="row-text">
+                  <span class="row-title">Password</span>
+                  <span class="row-sub">Stored in the keychain. Guards TCP and FTP together.</span>
+                </span>
+                <span class="row-value mono">••••</span>
+                <span class="chevron" aria-hidden="true"><svg width="7" height="12" viewBox="0 0 7 12" fill="none"><path d="M1 1l5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+              </button>
+              <button class="row tappable" type="button" id="connect-btn">
+                <span class="row-text"><span class="row-title" style="color:var(--ios-blue)">Connect and identify</span></span>
+                <span class="row-value" id="connect-state">Connected</span>
+              </button>
+            </div>
+            <div style="margin-top:16px">
+              <div class="sweep"><i id="sweep-bar" style="width:100%"></i></div>
+              <p class="sweep-label" id="sweep-label">TRIUMPH-2 — [PG] checksum verified</p>
+            </div>
+            <p class="group-footer">
+              A verified checksum is proof rather than a guess: the header, the body length
+              and every byte between them have to be right for it to come out. A link that
+              stays quiet through the listening window is asked
+              <code>print,/par/rcv/model:on</code> instead — a receiver answers, an idle
+              socket does not.
+            </p>
+
+            <p class="group-header">Receiver</p>
+            <div class="list">
+              <div class="row">
+                <span class="row-text"><span class="row-title">Model</span></span>
+                <span class="row-value mono">TRIUMPH-2</span>
+              </div>
+              <div class="row">
+                <span class="row-text">
+                  <span class="row-title">Leave the receiver unchanged</span>
+                  <span class="row-sub">PPP, corrections, base/rover mode and every <code style="font-family:'JetBrains Mono',monospace">/par/net</code> setting are left alone. Only which messages are enabled on this connection changes.</span>
+                </span>
+                <button class="switch" role="switch" aria-checked="true" disabled aria-label="Leave the receiver unchanged"><span class="knob"></span></button>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============================ LOG ============================ -->
+          <section class="view" id="view-log" data-title="Log" hidden aria-label="Log">
+            <h1 class="large-title">Log</h1>
+            <p class="subtitle">Every ticked message adds its own columns to the file, at its own period.</p>
+
+            <p class="group-header">Messages</p>
+            <div class="list" id="msg-list"></div>
+            <p class="group-footer">
+              Position cannot be switched off: it is the message that closes an epoch, so
+              without it there is no moment at which a row becomes complete. A slower message
+              leaves no holes — its last value is carried forward onto every row until the
+              next one arrives.
+            </p>
+
+            <p class="group-header">Where it goes</p>
+            <div class="list">
+              <div class="row">
+                <span class="glyph" aria-hidden="true"><svg width="20" height="18" viewBox="0 0 20 18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M1.6 4.4a1.6 1.6 0 0 1 1.6-1.6h4l1.8 2.2h7.4a1.6 1.6 0 0 1 1.6 1.6v8.4a1.6 1.6 0 0 1-1.6 1.6H3.2a1.6 1.6 0 0 1-1.6-1.6z"/></svg></span>
+                <span class="row-text">
+                  <span class="row-title">On My iPhone › Javad Logger</span>
+                  <span class="row-sub">The app's own container. iOS gives no free filesystem, so there is no folder to pick.</span>
+                </span>
+              </div>
+              <div class="row">
+                <span class="row-text"><span class="row-title">File name</span></span>
+                <span class="row-value" style="font-family:'JetBrains Mono',monospace;font-size:13px">javad-2026-09-05-141203.csv</span>
+              </div>
+              <div class="row">
+                <span class="row-text">
+                  <span class="row-title">Share when the file closes</span>
+                  <span class="row-sub">Opens the share sheet on Stop — AirDrop, Mail, or straight into Files.</span>
+                </span>
+                <button class="switch" role="switch" aria-checked="false" aria-label="Share when the file closes"><span class="knob"></span></button>
+              </div>
+            </div>
+            <p class="group-footer" id="col-summary">
+              <code>host_time_utc</code> first and always, then 15 columns from the three
+              messages selected.
+            </p>
+          </section>
+
+          <!-- ============================ FILES ============================ -->
+          <section class="view" id="view-files" data-title="Files" hidden aria-label="Files">
+            <h1 class="large-title">Files</h1>
+            <p class="subtitle">One file per session, and the header says what is in it.</p>
+
+            <p class="group-header">Today</p>
+            <div class="list">
+              <button class="row tappable" type="button">
+                <span class="row-text">
+                  <span class="row-title file-title">javad-2026-09-05-141203.csv <span class="badge">Recording</span></span>
+                  <span class="row-sub">2 714 rows · 16 columns · 4 min 31 s · 412 KB</span>
+                </span>
+                <span class="glyph grey" aria-hidden="true"><svg width="16" height="19" viewBox="0 0 16 19" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12.4V1.6M4.6 4.8 8 1.4l3.4 3.4M2.2 8.6h1.2M12.6 8.6h1.2M2.2 8.6v8.2h11.6V8.6"/></svg></span>
+              </button>
+              <button class="row tappable" type="button">
+                <span class="row-text">
+                  <span class="row-title file-title">javad-2026-09-05-093048.csv</span>
+                  <span class="row-sub">18 402 rows · 22 columns · 30 min 02 s · 3.1 MB</span>
+                </span>
+                <span class="glyph grey" aria-hidden="true"><svg width="16" height="19" viewBox="0 0 16 19" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12.4V1.6M4.6 4.8 8 1.4l3.4 3.4M2.2 8.6h1.2M12.6 8.6h1.2M2.2 8.6v8.2h11.6V8.6"/></svg></span>
+              </button>
+            </div>
+
+            <p class="group-header">Yesterday</p>
+            <div class="list">
+              <button class="row tappable" type="button">
+                <span class="row-text">
+                  <span class="row-title file-title">javad-2026-09-04-160915.csv</span>
+                  <span class="row-sub">1 205 rows · 7 columns · 20 min 05 s · 96 KB</span>
+                </span>
+                <span class="glyph grey" aria-hidden="true"><svg width="16" height="19" viewBox="0 0 16 19" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12.4V1.6M4.6 4.8 8 1.4l3.4 3.4M2.2 8.6h1.2M12.6 8.6h1.2M2.2 8.6v8.2h11.6V8.6"/></svg></span>
+              </button>
+            </div>
+            <p class="group-footer">
+              An empty cell means “not reported”, never zero. A missing velocity component is
+              not a stationary receiver.
+            </p>
+
+            <p class="group-header">Header of the newest file</p>
+            <div class="wire">
+              <h3>16 columns</h3>
+<pre><b>host_time_utc</b>,lat_deg,lon_deg,alt_m,
+pos_rms_m,sol_type,sol_type_label,
+rx_time_of_day,sv_gps,sv_glonass,
+sv_galileo,sv_beidou,sv_total</pre>
+            </div>
+          </section>
+
+        </div>
+
+        <nav class="tabbar glass" role="tablist" aria-label="Sections">
+          <div class="tab-pill" id="tab-pill"></div>
+          <button class="tab" role="tab" type="button" data-view="link" aria-selected="false">
+            <svg width="24" height="22" viewBox="0 0 26 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M9.2 15.2a5.4 5.4 0 0 1 0-7.2M4.8 18.4a10 10 0 0 1 0-13.6M16.8 15.2a5.4 5.4 0 0 0 0-7.2M21.2 18.4a10 10 0 0 0 0-13.6"/><circle cx="13" cy="11.6" r="2.3" fill="currentColor" stroke="none"/></svg>
+            Link
+          </button>
+          <button class="tab" role="tab" type="button" data-view="log" aria-selected="false">
+            <svg width="24" height="22" viewBox="0 0 26 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.6 5.9 8.5 9.4 5M4 13.6l1.9 1.9L9.4 12M4.6 20.4h.02M12.6 6.8h9.4M12.6 13.8h9.4M12.6 20.4h9.4"/></svg>
+            Log
+          </button>
+          <button class="tab" role="tab" type="button" data-view="record" aria-selected="true">
+            <svg width="24" height="22" viewBox="0 0 26 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="13" cy="12" r="8.6"/><circle cx="13" cy="12" r="4.2" fill="currentColor" stroke="none"/></svg>
+            Record
+          </button>
+          <button class="tab" role="tab" type="button" data-view="files" aria-selected="false">
+            <svg width="24" height="22" viewBox="0 0 26 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 2.8h8l6 6v12.4H6z"/><path d="M14 2.8v6h6"/><path d="M9.4 13.6h7.2M9.4 17.2h5"/></svg>
+            Files
+          </button>
+        </nav>
+
+        <div class="home-indicator"></div>
+
+        <div class="scrim" id="scrim" hidden></div>
+        <div class="sheet glass" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+          <div class="grabber"></div>
+          <div class="sheet-head">
+            <h2 id="sheet-title">Rate</h2>
+            <p id="sheet-note">A period in seconds, because that is what <code>em</code> takes.</p>
+          </div>
+          <div class="sheet-list" id="sheet-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  /* ------------------------------------------------------------------
+     A spring, parameterised the way Apple parameterises one: a damping
+     ratio (overshoot) and a response (how quickly it gets there). It
+     always starts from the value currently on screen, which is what
+     lets a gesture grab it mid-flight without a jump.
+     ------------------------------------------------------------------ */
+  function Spring(value, opts) {
+    this.x = value;
+    this.v = 0;
+    this.target = value;
+    this.zeta = (opts && opts.damping) || 1;
+    this.omega = (2 * Math.PI) / ((opts && opts.response) || 0.35);
+    this.onFrame = (opts && opts.onFrame) || function () {};
+    this.epsilon = (opts && opts.epsilon) || 0.05;
+    this.raf = 0;
+  }
+
+  Spring.prototype.setTarget = function (target, velocity) {
+    this.target = target;
+    if (typeof velocity === "number") this.v = velocity;
+    this.start();
+  };
+
+  Spring.prototype.set = function (x) {
+    this.stop();
+    this.x = x;
+    this.v = 0;
+    this.onFrame(this.x);
+  };
+
+  Spring.prototype.stop = function () {
+    if (this.raf) cancelAnimationFrame(this.raf);
+    this.raf = 0;
+  };
+
+  Spring.prototype.start = function () {
+    if (this.raf) return;
+    var self = this;
+    var last = performance.now();
+    function frame(now) {
+      var dt = Math.min((now - last) / 1000, 1 / 30);
+      last = now;
+      // Sub-step so a long frame cannot make the integrator explode.
+      var steps = Math.max(1, Math.ceil(dt / 0.004));
+      var h = dt / steps;
+      for (var i = 0; i < steps; i++) {
+        var a = -2 * self.zeta * self.omega * self.v - self.omega * self.omega * (self.x - self.target);
+        self.v += a * h;
+        self.x += self.v * h;
+      }
+      self.onFrame(self.x);
+      if (Math.abs(self.x - self.target) < self.epsilon && Math.abs(self.v) < self.epsilon * 10) {
+        self.x = self.target;
+        self.v = 0;
+        self.onFrame(self.x);
+        self.raf = 0;
+        return;
+      }
+      self.raf = requestAnimationFrame(frame);
+    }
+    self.raf = requestAnimationFrame(frame);
+  };
+
+  /* Apple's momentum projection: where a flick would come to rest. */
+  function project(velocity, decelerationRate) {
+    var d = decelerationRate || 0.998;
+    return (velocity / 1000) * d / (1 - d);
+  }
+
+  function $(id) { return document.getElementById(id); }
+
+  /* ---------------------------- press feedback ---------------------------- */
+
+  function bindPress(el) {
+    function down() { el.classList.add("pressed"); }
+    function up() { el.classList.remove("pressed"); }
+    el.addEventListener("pointerdown", down);
+    el.addEventListener("pointerup", up);
+    el.addEventListener("pointercancel", up);
+    el.addEventListener("pointerleave", up);
+  }
+
+  document.querySelectorAll(".row.tappable").forEach(bindPress);
+
+  /* Glass compresses slightly under a press — a thick material giving,
+     not a flat rectangle changing colour. */
+  document.querySelectorAll(".action").forEach(function (btn) {
+    var s = new Spring(1, {
+      damping: 0.8,
+      response: 0.26,
+      epsilon: 0.002,
+      onFrame: function (v) { btn.style.transform = "scale(" + v + ")"; }
+    });
+    btn.addEventListener("pointerdown", function () { s.setTarget(0.94); });
+    ["pointerup", "pointercancel", "pointerleave"].forEach(function (e) {
+      btn.addEventListener(e, function () { s.setTarget(1); });
+    });
+  });
+
+  /* ---------------------------- tabs ---------------------------- */
+
+  var views = {
+    link: $("view-link"),
+    log: $("view-log"),
+    record: $("view-record"),
+    files: $("view-files")
+  };
+  var order = ["link", "log", "record", "files"];
+  var current = "record";
+
+  var pill = $("tab-pill");
+  var tabbar = document.querySelector(".tabbar");
+
+  /* The selection pill is one piece of glass that travels, rather than
+     four that light up in turn. Position and width get their own springs
+     so a fast re-tap redirects it from wherever it currently is. */
+  var pillX = new Spring(0, {
+    damping: 0.82,
+    response: 0.38,
+    epsilon: 0.2,
+    onFrame: function (v) { pill.style.transform = "translateX(" + v + "px)"; }
+  });
+
+  function layoutPill(animated) {
+    var w = (tabbar.clientWidth - 12) / 4;
+    pill.style.width = w + "px";
+    var x = order.indexOf(current) * w;
+    if (animated && !reduceMotion.matches) pillX.setTarget(x);
+    else pillX.set(x);
+  }
+
+  var navbar = $("navbar");
+  var navSpring = new Spring(0, {
+    damping: 1,
+    response: 0.3,
+    epsilon: 0.002,
+    onFrame: function (v) {
+      navbar.style.opacity = String(v);
+      navbar.style.transform = "translateY(" + (-10 + 10 * v) + "px) scale(" + (0.94 + 0.06 * v) + ")";
+    }
+  });
+
+  /* The nav capsule materialises only once the large title has scrolled
+     under it — chrome appears where content needs covering, not before. */
+  function bindNavScroll(view) {
+    var shown = false;
+    view.addEventListener("scroll", function () {
+      var want = view.scrollTop > 46;
+      if (want === shown) return;
+      shown = want;
+      $("navbar-title").textContent = view.dataset.title;
+      navSpring.setTarget(want ? 1 : 0);
+    }, { passive: true });
+  }
+
+  Object.keys(views).forEach(function (k) { bindNavScroll(views[k]); });
+
+  function show(name) {
+    if (name === current) return;
+    var from = views[current];
+    var to = views[name];
+    current = name;
+
+    document.querySelectorAll(".tab").forEach(function (t) {
+      t.setAttribute("aria-selected", String(t.dataset.view === name));
+    });
+
+    from.hidden = true;
+    to.hidden = false;
+    to.scrollTop = 0;
+    navSpring.setTarget(0);
+    layoutPill(true);
+
+    if (reduceMotion.matches) return;
+
+    to.style.opacity = "0";
+    to.style.transform = "scale(0.98)";
+    var s = new Spring(0, {
+      damping: 1,
+      response: 0.32,
+      epsilon: 0.002,
+      onFrame: function (v) {
+        var c = Math.min(1, v);
+        to.style.opacity = String(c);
+        to.style.transform = "scale(" + (0.98 + 0.02 * c) + ")";
+      }
+    });
+    s.setTarget(1);
+    setTimeout(function () { to.style.transform = ""; to.style.opacity = ""; }, 460);
+  }
+
+  document.querySelectorAll(".tab").forEach(function (tab) {
+    tab.addEventListener("click", function () { show(tab.dataset.view); });
+  });
+
+  layoutPill(false);
+
+  /* ---------------------------- switches ---------------------------- */
+
+  function bindSwitch(el, onChange) {
+    var on = el.getAttribute("aria-checked") === "true";
+    var s = new Spring(on ? 20 : 0, {
+      damping: 1,
+      response: 0.26,
+      epsilon: 0.02,
+      onFrame: function (v) {
+        el.querySelector(".knob").style.transform = "translateX(" + v + "px)";
+      }
+    });
+    s.set(on ? 20 : 0);
+    if (el.disabled) return;
+    el.addEventListener("click", function () {
+      on = !on;
+      el.setAttribute("aria-checked", String(on));
+      s.setTarget(on ? 20 : 0);
+      if (onChange) onChange(on);
+    });
+  }
+
+  document.querySelectorAll(".switch").forEach(function (el) { bindSwitch(el, null); });
+
+  /* ---------------------------- the message list ----------------------------
+     Straight out of greis/catalog.py: five messages, their columns, and the
+     twelve periods em will accept. */
+
+  var PERIODS = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 30, 60];
+
+  function periodLabel(p) {
+    if (p < 1) return String(p * 1000) + " ms";
+    return String(p) + " s";
+  }
+
+  function periodHz(p) { return p < 1 ? String(+(1 / p).toFixed(0)) + " Hz" : ""; }
+
+  var MESSAGES = [
+    { code: "PG", label: "Position", desc: "Latitude, longitude, altitude, the receiver's own error estimate, and the solution type.", cols: 6, period: 1, on: true, locked: true },
+    { code: "VG", label: "Velocity", desc: "North/east/up components with an error estimate, plus ground and 3D speed.", cols: 6, period: 1, on: false },
+    { code: "ST", label: "Time of day", desc: "The receiver's clock, as milliseconds since midnight on its own time base.", cols: 1, period: 1, on: true },
+    { code: "RD", label: "Date", desc: "The receiver's date and its time base. Needs Time of day to produce a full timestamp.", cols: 3, period: 10, on: false },
+    { code: "NP", label: "Satellites", desc: "How many satellites of each constellation went into the solution.", cols: 5, period: 10, on: true }
+  ];
+
+  var msgList = $("msg-list");
+
+  MESSAGES.forEach(function (m, i) {
+    var row = document.createElement("div");
+    row.className = "row";
+    row.innerHTML =
+      '<span class="row-text">' +
+        '<span class="row-title">' + m.label + ' <span class="code-chip">[' + m.code + ']</span></span>' +
+        '<span class="row-sub">' + m.desc + '</span>' +
+        '<span class="row-sub" style="margin-top:7px">' +
+          '<button class="rate-btn" type="button" ' +
+          'style="font:inherit;font-size:13px;font-weight:500;color:var(--ios-label);' +
+          'background:var(--ios-fill);' +
+          'border:0;border-radius:999px;padding:4px 11px;cursor:pointer;letter-spacing:-0.01em">' +
+          'Every <span class="rate-text">' + periodLabel(m.period) + '</span>' +
+          '</button>' +
+        '</span>' +
+      '</span>' +
+      '<button class="switch" role="switch" aria-checked="' + m.on + '"' + (m.locked ? " disabled" : "") +
+      ' aria-label="Log ' + m.label + '"><span class="knob"></span></button>';
+    msgList.appendChild(row);
+
+    bindSwitch(row.querySelector(".switch"), function (on) { m.on = on; updateColumns(); });
+
+    var rateBtn = row.querySelector(".rate-btn");
+    bindPress(rateBtn);
+    rateBtn.addEventListener("click", function () { openSheet(i, rateBtn.querySelector(".rate-text")); });
+  });
+
+  function updateColumns() {
+    var total = 1; // host_time_utc, always
+    var n = 0;
+    MESSAGES.forEach(function (m) { if (m.on) { total += m.cols; n++; } });
+    $("col-summary").innerHTML =
+      "<code>host_time_utc</code> first and always, then " + (total - 1) +
+      " columns from the " + n + " message" + (n === 1 ? "" : "s") + " selected.";
+  }
+
+  updateColumns();
+
+  /* ---------------------------- the rate sheet ----------------------------
+     Drag it 1:1, rubber-band past the top, and on release project the
+     momentum forward to decide dismiss or settle. */
+
+  var sheet = $("sheet");
+  var scrim = $("scrim");
+  var sheetList = $("sheet-list");
+  var sheetIndex = 0;
+  var sheetRateText = null;
+  var sheetHeight = 340;
+
+  var sheetSpring = new Spring(1, {
+    damping: 0.84,
+    response: 0.32,
+    epsilon: 0.002,
+    onFrame: function (v) {
+      // Glass materialises as it arrives: it scales and sharpens rather
+      // than simply fading in.
+      sheet.style.transform = "translateY(" + v * 110 + "%) scale(" + (1 - 0.04 * v) + ")";
+      scrim.style.opacity = String(Math.max(0, 1 - v));
+    }
+  });
+
+  function renderSheet() {
+    var m = MESSAGES[sheetIndex];
+    $("sheet-title").textContent = m.label + " rate";
+    sheetList.innerHTML = "";
+    PERIODS.forEach(function (p) {
+      var b = document.createElement("button");
+      b.className = "opt";
+      b.type = "button";
+      b.setAttribute("role", "radio");
+      b.setAttribute("aria-checked", String(p === m.period));
+      b.innerHTML = "<span>Every " + periodLabel(p) + "</span>" +
+                    '<span class="hz">' + periodHz(p) + "</span>";
+      bindPress(b);
+      b.addEventListener("click", function () {
+        m.period = p;
+        if (sheetRateText) sheetRateText.textContent = periodLabel(p);
+        renderSheet();
+        closeSheet();
+      });
+      sheetList.appendChild(b);
+    });
+  }
+
+  function openSheet(i, rateText) {
+    sheetIndex = i;
+    sheetRateText = rateText;
+    renderSheet();
+    sheet.hidden = false;
+    scrim.hidden = false;
+    sheetHeight = sheet.offsetHeight;
+    if (reduceMotion.matches) {
+      sheetSpring.set(0);
+    } else {
+      sheetSpring.x = 1;
+      sheetSpring.setTarget(0);
+    }
+  }
+
+  function closeSheet(velocity) {
+    if (reduceMotion.matches) {
+      sheetSpring.set(1);
+      sheet.hidden = true;
+      scrim.hidden = true;
+      return;
+    }
+    // Velocity arrives in px/s; the spring runs in fractions of the sheet.
+    sheetSpring.setTarget(1, velocity ? velocity / sheetHeight : undefined);
+    setTimeout(function () {
+      if (sheetSpring.target === 1) { sheet.hidden = true; scrim.hidden = true; }
+    }, 480);
+  }
+
+  scrim.addEventListener("click", function () { closeSheet(); });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !sheet.hidden) closeSheet();
+  });
+
+  /* Rubber-band: the further past the top edge, the less it follows. */
+  function rubberband(overshoot, dimension, constant) {
+    var c = constant || 0.55;
+    return (overshoot * dimension * c) / (dimension + c * Math.abs(overshoot));
+  }
+
+  (function bindSheetDrag() {
+    var dragging = false;
+    var startY = 0;
+    var startFraction = 0;
+    var history = [];
+
+    sheet.addEventListener("pointerdown", function (e) {
+      // Let the option list scroll on its own; the chrome is the handle.
+      if (e.target.closest(".opt")) return;
+      dragging = true;
+      sheet.setPointerCapture(e.pointerId);
+      sheetSpring.stop();
+      startY = e.clientY;
+      startFraction = sheetSpring.x;
+      history = [{ y: e.clientY, t: performance.now() }];
+    });
+
+    sheet.addEventListener("pointermove", function (e) {
+      if (!dragging) return;
+      var f = startFraction + (e.clientY - startY) / sheetHeight;
+      if (f < 0) f = -rubberband(-f, 1, 0.55);
+      sheetSpring.set(f);
+      history.push({ y: e.clientY, t: performance.now() });
+      if (history.length > 6) history.shift();
+    });
+
+    function end() {
+      if (!dragging) return;
+      dragging = false;
+      var last = history[history.length - 1];
+      var first = history[0];
+      var dt = Math.max(1, last.t - first.t);
+      var velocity = ((last.y - first.y) / dt) * 1000; // px/s
+
+      // Decide from where the flick is going, not from where it stopped.
+      var projected = sheetSpring.x * sheetHeight + project(velocity);
+      if (projected > sheetHeight * 0.4) closeSheet(velocity);
+      else sheetSpring.setTarget(0, velocity / sheetHeight);
+    }
+
+    sheet.addEventListener("pointerup", end);
+    sheet.addEventListener("pointercancel", end);
+  })();
+
+  /* ---------------------------- live session ---------------------------- */
+
+  var rowsEl = $("rows");
+  var rows = 2714;
+  var pulse = $("pulse");
+  var epochTime = $("epoch-time");
+  var recording = true;
+
+  var lat = 32.081234567;
+  var lon = 34.780987654;
+  var alt = 42.8137;
+  var second = 7;
+
+  function grouped(n) { return n.toLocaleString("en-US").replace(/,/g, " "); }
+
+  // The counter rolls rather than snaps, so how fast it travels is how
+  // fast rows are being written.
+  var counterSpring = new Spring(rows, {
+    damping: 1,
+    response: 0.7,
+    epsilon: 0.05,
+    onFrame: function (v) { rowsEl.textContent = grouped(Math.round(v)); }
+  });
+
+  function jitter(base, amount) { return base + (Math.random() - 0.5) * amount; }
+
+  function epoch() {
+    if (!recording) return;
+    rows += 1;
+
+    if (reduceMotion.matches) {
+      rowsEl.textContent = grouped(rows);
+    } else {
+      counterSpring.setTarget(rows);
+      pulse.classList.remove("beat");
+      void pulse.offsetWidth;
+      pulse.classList.add("beat");
+    }
+
+    second = (second + 1) % 60;
+    var mm = 12 + Math.floor((7 + rows) / 60) % 60;
+    epochTime.textContent =
+      "14:" + String(mm % 60).padStart(2, "0") + ":" + String(second).padStart(2, "0") + ".000";
+
+    $("f-lat").textContent = jitter(lat, 0.00000004).toFixed(9) + "°";
+    $("f-lon").textContent = jitter(lon, 0.00000004).toFixed(9) + "°";
+    $("f-alt").textContent = jitter(alt, 0.006).toFixed(4) + " m";
+    $("f-rms").textContent = jitter(0.0142, 0.004).toFixed(4) + " m";
+
+    var vn = jitter(0.0031, 0.004), ve = jitter(-0.0018, 0.004), vu = jitter(0.0007, 0.004);
+    $("f-vel").textContent = vn.toFixed(4) + " · " + ve.toFixed(4) + " · " + vu.toFixed(4);
+    $("f-grd").textContent = Math.sqrt(vn * vn + ve * ve).toFixed(4) + " m/s";
+
+    $("f-bps").textContent = jitter(3.1, 0.5).toFixed(1) + " kB/s";
+    $("f-gap").textContent = jitter(0.21, 0.12).toFixed(2) + " s";
+
+    if (rows % 7 === 0) {
+      var gps = 10 + Math.floor(Math.random() * 3);
+      var glo = 7 + Math.floor(Math.random() * 3);
+      var gal = 6 + Math.floor(Math.random() * 3);
+      var bds = 5 + Math.floor(Math.random() * 3);
+      $("v-gps").textContent = gps; $("b-gps").style.width = (gps / 13 * 100) + "%";
+      $("v-glo").textContent = glo; $("b-glo").style.width = (glo / 13 * 100) + "%";
+      $("v-gal").textContent = gal; $("b-gal").style.width = (gal / 13 * 100) + "%";
+      $("v-bds").textContent = bds; $("b-bds").style.width = (bds / 13 * 100) + "%";
+      $("sv-total").textContent = gps + glo + gal + bds;
+    }
+  }
+
+  setInterval(epoch, 1000);
+
+  var elapsed = 271;
+  setInterval(function () {
+    if (!recording) return;
+    elapsed += 1;
+    var h = Math.floor(elapsed / 3600);
+    var m = Math.floor((elapsed % 3600) / 60);
+    var s = elapsed % 60;
+    $("elapsed").textContent =
+      String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+  }, 1000);
+
+  var stopBtn = $("stop-btn");
+  stopBtn.addEventListener("click", function () {
+    recording = !recording;
+    var solPill = $("sol-pill");
+    if (!recording) {
+      stopBtn.querySelector("span").textContent = "Start a new file";
+      stopBtn.classList.add("primary");
+      $("sol-label").textContent = "Stopped · dm sent";
+      solPill.style.background = "var(--ios-fill)";
+      solPill.style.color = "var(--ios-label-2)";
+      pulse.classList.remove("beat");
+      $("f-bps").textContent = "0.0 kB/s";
+    } else {
+      stopBtn.querySelector("span").textContent = "Stop and close the file";
+      stopBtn.classList.remove("primary");
+      $("sol-label").textContent = "RTK Fixed";
+      solPill.style.background = "";
+      solPill.style.color = "";
+    }
+  });
+
+  /* ---------------------------- connect and identify ----------------------------
+     No baud sweep to run: a socket either opens or it does not. What is
+     left is the identification, which never depended on the transport. */
+
+  var STAGES = [
+    "192.168.0.1:8002 — opening socket",
+    "connected — listening 1.5 s",
+    "framing found — verifying checksum",
+    "print,/par/rcv/model:on — not needed"
+  ];
+
+  var connecting = false;
+
+  $("connect-btn").addEventListener("click", function () {
+    if (connecting) return;
+    connecting = true;
+    var bar = $("sweep-bar");
+    var label = $("sweep-label");
+    var i = 0;
+
+    $("connect-state").textContent = "Connecting…";
+    bar.style.transition = "none";
+    bar.style.width = "0%";
+
+    var t = setInterval(function () {
+      bar.style.transition = "width 300ms cubic-bezier(0.32,0.72,0,1)";
+      bar.style.width = (((i + 1) / STAGES.length) * 100) + "%";
+      label.textContent = STAGES[i];
+      i++;
+      if (i >= STAGES.length) {
+        clearInterval(t);
+        setTimeout(function () {
+          label.textContent = "TRIUMPH-2 — [PG] checksum verified";
+          $("connect-state").textContent = "Connected";
+          connecting = false;
+        }, 420);
+      }
+    }, 460);
+  });
+
+  function tickClock() {
+    var d = new Date();
+    $("clock").textContent =
+      String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  }
+  tickClock();
+  setInterval(tickClock, 20000);
+})();
+</script>
