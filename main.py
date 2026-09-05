@@ -33,7 +33,7 @@ from PySide6.QtWidgets import QApplication
 from gui import appearance, theme
 from gui.main_window import MainWindow, default_output_directory
 
-APPLICATION_NAME = "Javad Logger"
+from version import APPLICATION_NAME, __version__
 
 LOG_FILE_NAME = "javad-logger.log"
 MAX_LOG_BYTES = 2 * 1024 * 1024

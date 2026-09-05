@@ -69,6 +69,7 @@ from greis.catalog import CATALOG, PERIOD_CHOICES_S, LogMessage, period_label
 from greis.commands import DEFAULT_ACCESS_POINT_IP, DEFAULT_TCP_PORT, suggested_ssid
 from greis.epoch import JavadEpoch, now_utc
 from recording.csv_writer import default_log_path
+from version import APPLICATION_NAME, __version__
 
 _logger = logging.getLogger(__name__)
 
@@ -431,7 +432,10 @@ class MainWindow(QMainWindow):
 
     def __init__(self, palette: theme.Palette = theme.LIGHT) -> None:
         super().__init__()
-        self.setWindowTitle("Javad Logger")
+        # The version is in the title rather than behind an About box:
+        # the question it answers - "which build wrote this file" - is
+        # usually asked of a screenshot.
+        self.setWindowTitle(f"{APPLICATION_NAME} {__version__}")
         # A width only. An explicit minimum *height* would replace the one
         # the layout works out for itself, and the window could then be
         # dragged shorter than the panels inside it need - at which point
