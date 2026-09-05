@@ -5,21 +5,23 @@ so that :mod:`gui.main_window` can be read as layout and behaviour without
 a colour literal in sight. Changing the look is a change to one file that
 nothing else imports.
 
-The palette follows Apple's system colours rather than inventing its own.
-That is not decoration: those greys and that blue were chosen so that a
-value sitting on a card is legible at the same contrast in a bright field
-and in a dim room, and this tool is used in both. There are two palettes,
+The greys follow Apple's system colours rather than inventing their own.
+That is not decoration: they were chosen so that a value sitting on a card
+is legible at the same contrast in a bright field and in a dim room, and
+this tool is used in both. The accent is JAVAD's own green, #85c446, taken
+from their site rather than guessed at - darkened for the light palette,
+for the reason under :attr:`Palette.on_accent`. There are two palettes,
 :data:`LIGHT` and :data:`DARK`, holding exactly the same token names, and
 :func:`stylesheet` will dress the window in either. The application asks
 the operating system which one the machine is in and re-asks whenever that
 changes, so it follows the system instead of arguing with it.
 
-Colour carries meaning here and is spent sparingly. One accent blue for
-the things that can be pressed or are currently selected. One red, on the
-Stop button and on a reported failure and nowhere else - that is what makes
-"the session is running" readable across the room, and spending red on
-decoration would throw it away. One green, on the dot that pulses as epochs
-arrive, because "still alive" and "stop me" must never be confused.
+Colour carries meaning here and is spent sparingly. One accent for the
+things that can be pressed or are currently selected. One red, on the Stop
+button and on a reported failure and nowhere else - that is what makes "the
+session is running" readable across the room, and spending red on
+decoration would throw it away. And the live dot, which is the only thing
+on screen that moves.
 
 Depth replaces borders. A card is a lighter surface than the page it sits
 on, with a hairline edge and a soft shadow, so grouping is read from the
@@ -110,8 +112,15 @@ class Palette:
     on top of it legible."""
 
     on_accent: str
-    """Type on a filled accent surface. White in both palettes, which is
-    only true because both accents are dark enough to carry it."""
+    """Type on a filled accent surface, and the tick inside a checked box.
+
+    Not the same in both palettes, and that is forced rather than chosen.
+    JAVAD's green is a light lime: white on it measures 2.1:1, which is
+    unreadable, and JAVAD's own site puts near-black on it instead. The
+    dark palette therefore uses that near-black. The light palette darkens
+    the brand green far enough to carry white, because a dark green on a
+    white card also has to work as type, and one colour cannot be both
+    light enough to want dark type and dark enough to read on white."""
 
     alert: str
     alert_hover: str
@@ -119,8 +128,15 @@ class Palette:
     """The Stop button and a reported failure. Nothing else."""
 
     live: str
-    """The dot that pulses as epochs arrive. Green rather than the accent,
-    so that "data is flowing" cannot be mistaken for "this is selected"."""
+    """The dot that pulses as epochs arrive.
+
+    It used to be green *because* the accent was blue. Now that the accent
+    is JAVAD's green the two are in the same family, and what separates
+    them is no longer hue alone: the accent is a yellow-green and this is a
+    true one, the dot is the only thing in the window that moves, and
+    nothing else in the window is a circle. If those stop being enough to
+    tell "data is flowing" from "this is selected", this is the value to
+    change - not the accent, which is the brand's."""
 
     shadow: str
     """A card's shadow, as ``r,g,b,a``. Applied by :mod:`gui.appearance`; a
@@ -141,10 +157,10 @@ LIGHT = Palette(
     label="#1c1c1e",
     secondary_label="#6c6c70",
     tertiary_label="#a6a6ab",
-    accent="#007aff",
-    accent_hover="#1a88ff",
-    accent_pressed="#0062cc",
-    accent_wash="#d9e8ff",
+    accent="#527a2b",
+    accent_hover="#486b26",
+    accent_pressed="#3d5a20",
+    accent_wash="#e7f3da",
     on_accent="#ffffff",
     alert="#ff3b30",
     alert_hover="#ff5147",
@@ -164,11 +180,11 @@ DARK = Palette(
     label="#ffffff",
     secondary_label="#98989f",
     tertiary_label="#636366",
-    accent="#0a84ff",
-    accent_hover="#3d9bff",
-    accent_pressed="#0070e0",
-    accent_wash="#10375e",
-    on_accent="#ffffff",
+    accent="#85c446",
+    accent_hover="#96cc60",
+    accent_pressed="#70a53b",
+    accent_wash="#253714",
+    on_accent="#141414",
     alert="#ff453a",
     alert_hover="#ff6259",
     alert_pressed="#d93a30",
