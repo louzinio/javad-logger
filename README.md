@@ -1,6 +1,25 @@
+<div align="center">
+
+<img src="assets/logo.png" width="120" alt="Javad Logger">
+
 # Javad Logger
 
-אפליקציית דסקטופ שמקליטה את מה שמקלט Javad GNSS אומר.
+**מקליט את מה שמקלט JAVAD GNSS אומר, לקובץ CSV אחד.**
+שורה אחת לכל epoch של מיקום, ורק העמודות שביקשת.
+
+[![הורדה למחשב](https://img.shields.io/github/v/release/louzinio/javad-logger?label=Windows&color=85c446&style=for-the-badge)](https://github.com/louzinio/javad-logger/releases/latest)
+[![הורדה לאייפון](https://img.shields.io/github/v/release/louzinio/javad-logger?include_prereleases&filter=ios-*&label=iPhone&color=527a2b&style=for-the-badge)](https://github.com/louzinio/javad-logger/releases)
+
+![Python](https://img.shields.io/badge/Python-3.11%2B-informational?style=flat-square)
+![Swift](https://img.shields.io/badge/Swift-6-informational?style=flat-square)
+![tests](https://img.shields.io/badge/tests-229%20%2B%2050-85c446?style=flat-square)
+
+<img src="assets/screenshot.png" width="820" alt="חלון האפליקציה: בחירת מקלט, סימון הודעות, וערכים חיים">
+
+</div>
+
+---
+
 היא מוצאת את המקלט בעצמה, מציגה רשימה של הודעות GREIS לסימון, מבקשת
 מהמקלט את מה שנבחר בקצב שנבחר, וכותבת שורת CSV אחת לכל epoch של מיקום.
 
@@ -12,6 +31,15 @@
 
 יש גם [גרסת iPhone](ios/) — אותה עבודה, מעל TCP ל-Wi-Fi שהמקלט מרים
 בעצמו, כי ל-iOS אין גישה לפורט טורי בכלל.
+
+## התקנה מהירה
+
+**Windows** — הורד את ה-zip מ-[Releases](https://github.com/louzinio/javad-logger/releases/latest),
+פרוס, והרץ `Javad Logger.exe`. לא צריך Python ולא צריך התקנה.
+
+**iPhone** — הורד את ה-`.ipa`, חתום אותו עם [Sideloadly](https://sideloadly.io)
+מול ה-Apple ID שלך, והדלק **הגדרות › פרטיות ואבטחה › מצב מפתח**.
+פירוט מלא ב-[`ios/README.md`](ios/README.md).
 
 ## דרישות
 
