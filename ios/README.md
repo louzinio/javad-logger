@@ -142,7 +142,8 @@ ios/
       Parser.swift         framing and resynchronisation
       Epoch.swift          one row, every field optional
       EpochBuilder.swift   carry-forward; [PG] closes the epoch
-      Catalog.swift        the five messages and their columns
+      Catalog.swift        the five messages, their columns, and ECEF
+      Geodesy.swift        WGS-84 geodetic to earth-centred Cartesian
       Commands.swift       dm, em, print — the whole vocabulary
       CSVWriter.swift      header built from the selection
       Transport.swift      what a session needs from underneath it
