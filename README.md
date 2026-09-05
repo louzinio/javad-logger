@@ -14,7 +14,15 @@
 ![Swift](https://img.shields.io/badge/Swift-6-informational?style=flat-square)
 ![tests](https://img.shields.io/badge/tests-229%20%2B%2050-85c446?style=flat-square)
 
-<img src="assets/screenshot.png" width="820" alt="חלון האפליקציה: בחירת מקלט, סימון הודעות, וערכים חיים">
+<img src="assets/screenshot.png" width="820" alt="חלון האפליקציה: מקלט, סימון הודעות, וערכים חיים">
+
+<sub>הערכים בתמונה מפוענחים על ידי הפרסר האמיתי מזרם GREIS מוקלט שנמצא ב-repo, לא מוקלדים.</sub>
+
+<br>
+
+<img src="assets/screenshot-iphone.png" width="820" alt="אפליקציית האייפון: Link, Log ו-Recording">
+
+<sub>גרסת האייפון, רצה על מכשיר, מנגנת את אותה הקלטה.</sub>
 
 </div>
 
