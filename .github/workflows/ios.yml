@@ -105,8 +105,15 @@ jobs:
               || { echo "::error::$key is missing from the built Info.plist"; exit 1; }
           done
           echo "local network, file sharing, open-in-place and the icon name are all present"
-          test -f payload/Payload/JavadLogger.app/AppIcon60x60@2x.png \n            || { echo "::error::the asset catalog produced no app icon"; exit 1; }
-          echo "icon present"
+
+          # Which AppIcon*.png names Xcode emplaces at the bundle root varies
+          # with the SDK and the device family, so assert on the compiled
+          # catalog and on there being an icon at all, not on one filename.
+          APP=payload/Payload/JavadLogger.app
+          test -f "$APP/Assets.car" || { echo "::error::no compiled asset catalog in the app"; exit 1; }
+          ICONS=$(find "$APP" -maxdepth 1 -name 'AppIcon*.png' | wc -l | tr -d ' ')
+          test "$ICONS" -gt 0 || { echo "::error::the asset catalog produced no app icon"; exit 1; }
+          echo "Assets.car present, $ICONS icon file(s) emplaced"
 
       - uses: actions/upload-artifact@v4
         with:
