@@ -1,0 +1,90 @@
+name: iOS
+
+# Builds the iPhone app on GitHub's macOS runner, because the project is
+# developed on Windows and there is no other machine that can compile it.
+#
+# The artifact is an unsigned .ipa. Signing needs an Apple ID, which is
+# personal and does not belong in CI, so the last step is done on the
+# operator's own machine with Sideloadly or AltStore.
+
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: GreisKit tests
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show the toolchain
+        run: swift --version && xcodebuild -version
+
+      # The part that needs no simulator and no device: the checksum, the
+      # framing, the carry-forward, the CSV header rules, and a whole
+      # replayed session end to end.
+      - name: swift test
+        working-directory: ios/GreisKit
+        run: swift test --enable-code-coverage
+
+      # The byte layouts the Swift port was written against, checked
+      # against the Python parser that has been run on real hardware.
+      - name: Check the replay stream still decodes
+        run: python3 ios/tools/make_sample_stream.py
+
+  build:
+    name: Unsigned .ipa
+    needs: test
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate the project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Build for a device, unsigned
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project JavadLogger.xcodeproj \
+            -scheme JavadLogger \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            ENABLE_BITCODE=NO \
+            build
+
+      # An .ipa is a zip with the .app inside a Payload directory, and
+      # nothing else. Sideloadly re-signs it on the way to the phone.
+      - name: Wrap the app as an .ipa
+        working-directory: ios
+        run: |
+          APP=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -1)
+          test -n "$APP" || { echo "no .app was produced"; exit 1; }
+          mkdir -p payload/Payload
+          cp -R "$APP" payload/Payload/
+          cd payload
+          zip -qry ../JavadLogger.ipa Payload
+          cd ..
+          ls -lh JavadLogger.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JavadLogger-unsigned-ipa
+          path: ios/JavadLogger.ipa
+          if-no-files-found: error
+          retention-days: 30
