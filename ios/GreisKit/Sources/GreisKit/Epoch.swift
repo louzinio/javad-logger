@@ -89,6 +89,24 @@ public struct JavadEpoch: Equatable, Sendable {
         return (ground * ground + up * up).squareRoot()
     }
 
+    /// Latitude in radians, which is the unit [PG] sent it in.
+    ///
+    /// The parser converts to degrees once, at the edge, so no two places
+    /// disagree about the unit of a latitude. This converts back for the
+    /// file. The round trip costs about one unit in the last place of a
+    /// double — a relative 1e-16, a nanometre on the ground, against a
+    /// receiver whose own error estimate is in millimetres.
+    ///
+    /// There is no altitude equivalent and there should not be: a height is
+    /// a length, not an angle, and `altitudeM` is the only form it has.
+    public var latitudeRad: Double? {
+        latitudeDeg.map { $0 * .pi / 180.0 }
+    }
+
+    public var longitudeRad: Double? {
+        longitudeDeg.map { $0 * .pi / 180.0 }
+    }
+
     /// The same position in earth-centred, earth-fixed metres.
     ///
     /// Derived rather than asked for: a receiver reporting Cartesian

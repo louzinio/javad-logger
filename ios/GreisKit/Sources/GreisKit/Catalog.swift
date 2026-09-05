@@ -157,6 +157,23 @@ public enum Catalog {
         mandatory: false
     )
 
+    public static let radians = LogMessage(
+        code: "RAD",
+        label: "Position in radians",
+        detail: "Latitude and longitude in radians, the unit [PG] sends them in before the parser converts once to degrees. Altitude has no radian form: a height is a length, not an angle.",
+        columns: [
+            // Twelve decimals of a radian is 1e-12 rad, about a hundredth
+            // of a millimetre on the ground — finer than the nine decimals
+            // of a degree beside it, so this is never the column that
+            // rounds.
+            LogColumn("lat_rad", decimals: 12) { .init($0.latitudeRad) },
+            LogColumn("lon_rad", decimals: 12) { .init($0.longitudeRad) },
+        ],
+        defaultPeriod: 1.0,
+        mandatory: false,
+        derived: true
+    )
+
     public static let ecef = LogMessage(
         code: "ECEF",
         label: "ECEF position",
@@ -177,7 +194,7 @@ public enum Catalog {
 
     /// In the order they are offered, which is the order their columns
     /// appear in the file: where you are, how fast, when, and with what.
-    public static let all: [LogMessage] = [pg, vg, st, rd, np, ecef]
+    public static let all: [LogMessage] = [pg, vg, st, rd, np, radians, ecef]
 
     public static func message(code: String) -> LogMessage? {
         all.first { $0.code == code }

@@ -270,3 +270,62 @@ final class GeodesyTests: XCTestCase {
         XCTAssertEqual(names.suffix(3), ["ecef_x_m", "ecef_y_m", "ecef_z_m"])
     }
 }
+
+final class RadianColumnTests: XCTestCase {
+
+    /// Two columns, not three. Altitude has no radian form: a height is a
+    /// length, not an angle, and an `alt_rad` would be an invented unit.
+    func testRadiansIsDerivedAndHasTwoColumns() {
+        XCTAssertTrue(Catalog.radians.derived)
+        XCTAssertEqual(Catalog.radians.columns.map(\.name), ["lat_rad", "lon_rad"])
+    }
+
+    func testRadiansRoundTripToTheDegreesTheyCameFrom() {
+        var epoch = JavadEpoch(receiverID: "TEST", receivedAt: Date())
+        epoch.latitudeDeg = 32.081234567
+        epoch.longitudeDeg = 34.780987654
+
+        let lat = try! XCTUnwrap(epoch.latitudeRad)
+        let lon = try! XCTUnwrap(epoch.longitudeRad)
+
+        XCTAssertEqual(lat * 180.0 / .pi, 32.081234567, accuracy: 1e-12)
+        XCTAssertEqual(lon * 180.0 / .pi, 34.780987654, accuracy: 1e-12)
+    }
+
+    /// The two ports must agree, or a session logged on the phone and one
+    /// logged on the desktop would not line up.
+    func testItMatchesThePythonPort() {
+        var epoch = JavadEpoch(receiverID: "TEST", receivedAt: Date())
+        epoch.latitudeDeg = 32.081234567
+        epoch.longitudeDeg = 34.780987654
+
+        XCTAssertEqual(epoch.latitudeRad!, 0.559923171299, accuracy: 1e-12)
+        XCTAssertEqual(epoch.longitudeRad!, 0.607042751658, accuracy: 1e-12)
+    }
+
+    /// Unlike ECEF, the two are independent: a latitude with no longitude
+    /// is still a latitude, and there is nothing to hold back.
+    func testALatitudeAloneStillProducesItsRadian() {
+        var epoch = JavadEpoch(receiverID: "TEST", receivedAt: Date())
+        XCTAssertNil(epoch.latitudeRad)
+
+        epoch.latitudeDeg = 32.0
+        XCTAssertEqual(epoch.latitudeRad!, 32.0 * .pi / 180.0, accuracy: 1e-15)
+        XCTAssertNil(epoch.longitudeRad)
+    }
+
+    func testNeitherComputedEntryIsEverAskedOfTheReceiver() {
+        let asked = Catalog.all.filter { !$0.derived }.map(\.code)
+        XCTAssertEqual(asked, ["PG", "VG", "ST", "RD", "NP"])
+        XCTAssertEqual(Set(Catalog.all.filter(\.derived).map(\.code)), ["RAD", "ECEF"])
+    }
+
+    func testAllThreeFormsLandInOneHeader() {
+        let names = CSVLogWriter.columns(for: [Catalog.pg, Catalog.radians, Catalog.ecef]).map(\.name)
+        XCTAssertEqual(
+            names,
+            ["host_time_utc", "lat_deg", "lon_deg", "alt_m", "pos_rms_m", "sol_type",
+             "sol_type_label", "lat_rad", "lon_rad", "ecef_x_m", "ecef_y_m", "ecef_z_m"]
+        )
+    }
+}

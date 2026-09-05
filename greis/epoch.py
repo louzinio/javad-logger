@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, time, timezone
-from math import hypot
+from math import hypot, radians
 
 from greis.geodesy import geodetic_to_ecef
 
@@ -132,6 +132,27 @@ class JavadEpoch:
         if ground is None or self.vel_up_mps is None:
             return None
         return hypot(ground, self.vel_up_mps)
+
+    @property
+    def latitude_rad(self) -> float | None:
+        """Latitude in radians, which is the unit [PG] sent it in.
+
+        The parser converts to degrees once, at the edge, so that no two
+        places in the codebase disagree about the unit of a latitude. This
+        converts back for the file. The round trip costs about one unit in
+        the last place of a double - a relative 1e-16, which on the earth's
+        surface is a nanometre, against a receiver whose own error estimate
+        is measured in millimetres.
+
+        There is no altitude equivalent and there should not be: a height
+        is a length, not an angle, and ``alt_m`` is already the only form
+        it has.
+        """
+        return radians(self.latitude_deg) if self.latitude_deg is not None else None
+
+    @property
+    def longitude_rad(self) -> float | None:
+        return radians(self.longitude_deg) if self.longitude_deg is not None else None
 
     @property
     def ecef(self) -> tuple[float, float, float] | None:

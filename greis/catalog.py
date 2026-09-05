@@ -166,6 +166,25 @@ NP = LogMessage(
     ),
 )
 
+RADIANS = LogMessage(
+    code="RAD",
+    label="Position in radians",
+    description=(
+        "Latitude and longitude in radians, which is the unit [PG] sends them in "
+        "before the parser converts once to degrees. Altitude has no radian form: "
+        "a height is a length, not an angle."
+    ),
+    default_period_s=1.0,
+    derived=True,
+    columns=(
+        # Twelve decimals of a radian is 1e-12 rad, about a hundredth of a
+        # millimetre on the ground - finer than the nine decimals of a
+        # degree beside it, so this column is never the one that rounds.
+        Column("lat_rad", lambda e: e.latitude_rad, decimals=12),
+        Column("lon_rad", lambda e: e.longitude_rad, decimals=12),
+    ),
+)
+
 ECEF = LogMessage(
     code="ECEF",
     label="ECEF position",
@@ -185,7 +204,7 @@ ECEF = LogMessage(
     ),
 )
 
-CATALOG: tuple[LogMessage, ...] = (PG, VG, ST, RD, NP, ECEF)
+CATALOG: tuple[LogMessage, ...] = (PG, VG, ST, RD, NP, RADIANS, ECEF)
 """In the order they are offered, which is the order their columns appear
 in the file: where you are, how fast, when, and with what."""
 

@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 
+import math
+
 import pytest
 
 from greis.catalog import (
@@ -195,13 +197,23 @@ def test_ecef_is_in_the_catalogue_and_marked_derived():
     assert ECEF.mandatory is False
 
 
-def test_every_real_message_is_not_derived():
-    """The flag exists to mark the exception, so the rule should hold for
-    everything else: if a GREIS message ever gets marked derived, no `em`
-    would be sent for it and the file would quietly lose its columns."""
+DERIVED_CODES = {"ECEF", "RAD"}
+"""The entries that name no GREIS message. Listed here so that adding one
+without meaning to fails a test: a real message marked derived would get no
+`em`, and the file would quietly lose its columns."""
+
+
+def test_only_the_computed_entries_are_derived():
     for message in CATALOG:
-        if message.code != "ECEF":
-            assert message.derived is False, message.code
+        expected = message.code in DERIVED_CODES
+        assert message.derived is expected, message.code
+
+
+def test_every_message_the_receiver_is_asked_for_has_a_greis_code():
+    """A derived entry's code is a label for this application only. The
+    rest go straight into an `em` path, so they have to be real."""
+    asked = [m.code for m in CATALOG if not m.derived]
+    assert asked == ["PG", "VG", "ST", "RD", "NP"]
 
 
 def test_ecef_contributes_three_columns_in_metres():
@@ -255,3 +267,73 @@ def test_a_height_of_none_leaves_ecef_empty_even_with_a_latitude():
         longitude_deg=34.0,
     )
     assert all(column.value(epoch) is None for column in ECEF.columns)
+
+
+# --- radians --------------------------------------------------------------
+
+
+def test_radians_is_derived_and_contributes_two_columns():
+    """Two, not three. Altitude has no radian form: a height is a length,
+    not an angle, and inventing an `alt_rad` would be inventing a unit."""
+    from greis.catalog import RADIANS
+
+    assert RADIANS in CATALOG
+    assert RADIANS.derived is True
+    assert [column.name for column in RADIANS.columns] == ["lat_rad", "lon_rad"]
+
+
+def test_radians_columns_are_finer_than_the_degree_columns_beside_them():
+    """Twelve decimals of a radian is 1e-12 rad, about a hundredth of a
+    millimetre; nine decimals of a degree is about a tenth. So the radian
+    column is never the one that rounds."""
+    from greis.catalog import PG, RADIANS
+
+    degree_decimals = next(c.decimals for c in PG.columns if c.name == "lat_deg")
+    radian_decimals = next(c.decimals for c in RADIANS.columns if c.name == "lat_rad")
+
+    degree_step_in_radians = math.radians(10.0**-degree_decimals)
+    radian_step = 10.0**-radian_decimals
+    assert radian_step < degree_step_in_radians
+
+
+def test_radians_round_trip_to_the_degrees_they_came_from():
+    from datetime import datetime, timezone
+
+    from greis.catalog import RADIANS
+    from greis.epoch import JavadEpoch
+
+    latitude, longitude = 32.081234567, 34.780987654
+    epoch = JavadEpoch(
+        receiver_id="T",
+        received_at=datetime.now(timezone.utc),
+        latitude_deg=latitude,
+        longitude_deg=longitude,
+    )
+    lat_rad, lon_rad = (column.value(epoch) for column in RADIANS.columns)
+
+    assert math.degrees(lat_rad) == pytest.approx(latitude, abs=1e-12)
+    assert math.degrees(lon_rad) == pytest.approx(longitude, abs=1e-12)
+
+
+def test_radians_are_empty_without_a_position():
+    from datetime import datetime, timezone
+
+    from greis.catalog import RADIANS
+    from greis.epoch import JavadEpoch
+
+    epoch = JavadEpoch(receiver_id="T", received_at=datetime.now(timezone.utc))
+    assert all(column.value(epoch) is None for column in RADIANS.columns)
+
+
+def test_a_longitude_alone_still_produces_its_radian():
+    """Unlike ECEF, these two are independent: a latitude with no longitude
+    is still a latitude, and there is nothing to hold back."""
+    from datetime import datetime, timezone
+
+    from greis.epoch import JavadEpoch
+
+    epoch = JavadEpoch(
+        receiver_id="T", received_at=datetime.now(timezone.utc), latitude_deg=32.0
+    )
+    assert epoch.latitude_rad == pytest.approx(math.radians(32.0))
+    assert epoch.longitude_rad is None
