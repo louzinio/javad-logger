@@ -74,18 +74,22 @@ def stop_logging() -> list[str]:
     return [DISABLE_ALL]
 
 
-def parse_model_reply(reply: bytes | str) -> str | None:
-    """The model name out of a reply to :data:`QUERY_MODEL`.
+def query(path: str) -> str:
+    """Ask for one parameter by path."""
+    return f"print,{path}:on"
 
-    Returns ``None`` when the reply does not contain the parameter at all,
-    which is the normal answer from a port that is streaming binary and
-    has not been asked anything - a receiver mid-stream can drown the reply
-    in [PG] messages, and a missing name is not a reason to refuse to log.
+
+def parse_parameter(reply: bytes | str, path: str) -> str | None:
+    """The value out of a ``<path>=<value>`` reply.
+
+    ``None`` when the reply does not contain the parameter at all. That is
+    a real answer and not only a failure: a receiver mid-stream can drown
+    the reply in [PG] messages, and a receiver with no Wi-Fi module simply
+    has nothing to say about ``/par/net/wlan``.
     """
     text = reply.decode("latin-1", errors="ignore") if isinstance(reply, bytes) else reply
     for line in text.splitlines():
-        marker = "/par/rcv/model"
-        index = line.find(marker)
+        index = line.find(path)
         if index == -1:
             continue
         _, separator, value = line[index:].partition("=")
@@ -95,3 +99,77 @@ def parse_model_reply(reply: bytes | str) -> str | None:
         if name:
             return name
     return None
+
+
+def parse_model_reply(reply: bytes | str) -> str | None:
+    """The model name out of a reply to :data:`QUERY_MODEL`."""
+    return parse_parameter(reply, "/par/rcv/model")
+
+
+# --- the receiver's own Wi-Fi -------------------------------------------
+#
+# The one place this application writes to the receiver's configuration,
+# and it is deliberate: the iPhone build has no way in until the receiver
+# is raising a network, and no way to ask for one either, because iOS has
+# neither a serial API nor an unlicensed Bluetooth link. So the cable does
+# it once, from here, and is not needed again.
+
+WLAN_MODE = "/par/net/wlan/mode"
+"""``off``, ``on`` for a network the receiver joins, ``adhoc`` for one it
+raises itself. A receiver with no radio does not answer this at all, and
+that silence is the whole capability test - there is no bit to read."""
+
+QUERY_WLAN_MODE = query(WLAN_MODE)
+
+WLAN_STATE = "/par/net/wlan/state"
+WLAN_SSID = "/par/net/wlan/ap/ssid"
+NET_IP = "/par/net/ip/addr"
+NET_TCP_PORT = "/par/net/tcp/port"
+
+DEFAULT_ACCESS_POINT_IP = "192.168.0.1"
+DEFAULT_TCP_PORT = 8002
+"""JAVAD's own iOS manual: ``set,/par/net/tcp/port,8002``, reached at
+192.168.0.1 once the receiver is in adhoc mode. Ports 8010-8014 are a
+different job - RTN correction streams - and are not this."""
+
+
+def access_point_setup(ssid: str, *, tcp_port: int = DEFAULT_TCP_PORT, password: str = "") -> list[str]:
+    """Tell the receiver to raise its own Wi-Fi network.
+
+    ``reset`` is last and is not optional. Wi-Fi changes on a Triumph do
+    not take effect until the receiver restarts, and leaving it out is the
+    single most common way this is got wrong: every setting reads back
+    correctly and nothing happens.
+
+    The password is omitted rather than sent empty when there is none, so
+    a receiver without one is not given ``""`` as a password to guard its
+    TCP and FTP with.
+    """
+    if not ssid:
+        raise ValueError("The network needs a name")
+    if not 1 <= tcp_port <= 65535:
+        raise ValueError(f"{tcp_port} is not a TCP port")
+
+    commands = [f"set,{NET_TCP_PORT},{tcp_port}"]
+    if password:
+        commands.append(f'set,/par/net/passwd,"{password}"')
+    commands += [
+        f'set,{WLAN_SSID},"{ssid}"',
+        "set,/par/net/dhcp/server/mode,on",
+        "set,/par/net/dhcp/client/mode,off",
+        f"set,{WLAN_MODE},adhoc",
+        "set,reset,yes",
+    ]
+    return commands
+
+
+def suggested_ssid(model: str | None) -> str:
+    """The network name to offer, taken from the receiver's own model.
+
+    Named after the receiver so that two of them on one site are told
+    apart on a phone's Wi-Fi list, rather than by switching one off.
+    """
+    if not model:
+        return "JAVAD"
+    cleaned = "".join(character if character.isalnum() else "-" for character in model.strip())
+    return cleaned.strip("-").upper() or "JAVAD"

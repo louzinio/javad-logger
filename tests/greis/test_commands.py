@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import pytest
 
+from greis import commands
 from greis.commands import (
     DISABLE_ALL,
     QUERY_MODEL,
@@ -155,3 +156,65 @@ def test_parse_model_reply_returns_none_for_a_parameter_with_an_empty_value():
 
 def test_query_model_asks_for_the_parameter_the_reply_parser_looks_for():
     assert "/par/rcv/model" in QUERY_MODEL
+
+
+# --- the receiver's own Wi-Fi -------------------------------------------
+
+
+def test_parse_parameter_reads_any_path():
+    reply = b"RE001%\r\n/par/net/wlan/mode=adhoc\r\n"
+    assert commands.parse_parameter(reply, commands.WLAN_MODE) == "adhoc"
+
+
+def test_parse_parameter_is_none_when_the_receiver_never_mentions_it():
+    """The whole capability test. A receiver with no radio does not answer,
+    and that silence is what "this model has no Wi-Fi" looks like - there
+    is no bit to read."""
+    assert commands.parse_parameter(b"PG01E\x00\x00binary", commands.WLAN_MODE) is None
+
+
+def test_parse_parameter_survives_a_reply_buried_in_binary():
+    reply = b"\x00\xffPG01E junk\r\n/par/net/wlan/mode=on\r\n\x00"
+    assert commands.parse_parameter(reply, commands.WLAN_MODE) == "on"
+
+
+def test_access_point_setup_ends_with_the_reset():
+    """Without it every setting reads back correctly and nothing happens:
+    Wi-Fi changes do not take effect until the receiver restarts."""
+    sequence = commands.access_point_setup("TRIUMPH2_008")
+    assert sequence[-1] == "set,reset,yes"
+
+
+def test_access_point_setup_sends_the_documented_form():
+    sequence = commands.access_point_setup("MY-NET", tcp_port=8002, password="1234")
+    assert "set,/par/net/tcp/port,8002" in sequence
+    assert 'set,/par/net/passwd,"1234"' in sequence
+    assert 'set,/par/net/wlan/ap/ssid,"MY-NET"' in sequence
+    assert "set,/par/net/wlan/mode,adhoc" in sequence
+    assert "set,/par/net/dhcp/server/mode,on" in sequence
+
+
+def test_no_password_means_no_password_command():
+    """Rather than sending an empty one, which would set the password that
+    guards TCP and FTP to ""."""
+    sequence = commands.access_point_setup("MY-NET")
+    assert not any("passwd" in command for command in sequence)
+
+
+def test_the_network_needs_a_name():
+    with pytest.raises(ValueError):
+        commands.access_point_setup("")
+
+
+def test_a_port_outside_the_range_is_refused():
+    with pytest.raises(ValueError):
+        commands.access_point_setup("MY-NET", tcp_port=70000)
+
+
+def test_the_offered_name_comes_from_the_receiver():
+    """So two receivers on one site are told apart on a phone's Wi-Fi list
+    rather than by switching one off."""
+    assert commands.suggested_ssid("TRIUMPH-2") == "TRIUMPH-2"
+    assert commands.suggested_ssid("Delta 3") == "DELTA-3"
+    assert commands.suggested_ssid(None) == "JAVAD"
+    assert commands.suggested_ssid("   ") == "JAVAD"

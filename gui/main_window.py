@@ -63,8 +63,10 @@ from PySide6.QtWidgets import (
 from device.discovery import DetectedReceiver, DetectionWorker
 from device.serial_port import available_ports
 from device.session import LoggingSession, SessionConfig
+from device.wifi import WiFiProbe, WiFiSetup
 from gui import appearance, motion, theme
 from greis.catalog import CATALOG, PERIOD_CHOICES_S, LogMessage, period_label
+from greis.commands import DEFAULT_ACCESS_POINT_IP, DEFAULT_TCP_PORT, suggested_ssid
 from greis.epoch import JavadEpoch, now_utc
 from recording.csv_writer import default_log_path
 
@@ -136,6 +138,10 @@ BROWSE_HINT = "Choose the folder the CSV files go in."
 START_HINT = "Start recording to the file named above."
 STOP_HINT = "Stop recording and close the file."
 NO_RECEIVER_HINT = "Select a receiver first."
+WIFI_HINT = (
+    "Tell this receiver to raise its own Wi-Fi network, so a phone can reach it\n"
+    "without a cable. The receiver restarts to apply it."
+)
 LOCKED_RECEIVER_HINT = (
     "Not while logging: the port is already open. Stop the session to choose another receiver."
 )
@@ -425,6 +431,9 @@ class MainWindow(QMainWindow):
 
         self._detection: DetectionWorker | None = None
         self._session: LoggingSession | None = None
+        self._wifi_probe: WiFiProbe | None = None
+        self._wifi_setup: WiFiSetup | None = None
+        self._wifi_mode: str | None = None
         self._config: SessionConfig | None = None
         self._message_rows: list[_MessageRow] = []
         self._value_labels: dict[str, QLabel] = {}
@@ -528,11 +537,23 @@ class MainWindow(QMainWindow):
         self._receiver_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._receiver_placeholder.setWordWrap(True)
 
+        # Hidden until a receiver has been asked and has answered. A model
+        # with no radio never sees this button: it does not have the
+        # feature, and a disabled one would only raise the question of how
+        # to switch it on.
+        self._wifi_button = QPushButton("Turn on its Wi-Fi", card.frame)
+        self._wifi_button.setToolTip(WIFI_HINT)
+        self._wifi_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._wifi_button.setVisible(False)
+        self._wifi_button.clicked.connect(self._on_wifi_clicked)
+        appearance.apply_type(self._wifi_button, appearance.CAPTION)
+
         card.body.setSpacing(theme.SPACE_2)
         card.body.addWidget(self._detect_button)
         card.body.addWidget(self._scan_bar)
         card.body.addWidget(self._receiver_list, 1)
         card.body.addWidget(self._receiver_placeholder, 1)
+        card.body.addWidget(self._wifi_button)
         self._show_receiver_placeholder(NO_RECEIVERS_YET)
         return card
 
@@ -906,6 +927,94 @@ class MainWindow(QMainWindow):
             model = f" ({receiver.model})" if receiver.model else ""
             self._log(f"Selected {receiver.port} at {receiver.baud_rate} baud{model}")
         self._update_name_preview()
+        self._probe_wifi(receiver)
+
+    # --- the receiver's own Wi-Fi -----------------------------------------
+
+    def _probe_wifi(self, receiver: DetectedReceiver | None) -> None:
+        """Ask the selected receiver whether it has a radio.
+
+        Asked rather than looked up: there is no capability bit, so a
+        receiver with no Wi-Fi is one that does not answer, and any table
+        of model names would be wrong the day a model is added.
+        """
+        self._wifi_button.setVisible(False)
+        self._wifi_mode = None
+        if self._wifi_probe is not None or receiver is None or self._session is not None:
+            return
+
+        probe = WiFiProbe(receiver.port, receiver.baud_rate, parent=self)
+        probe.probed.connect(self._on_wifi_probed)
+        probe.finished.connect(self._on_wifi_probe_finished)
+        self._wifi_probe = probe
+        probe.start()
+
+    def _on_wifi_probed(self, has_wifi: bool, mode: object, model: object) -> None:
+        self._wifi_mode = mode if isinstance(mode, str) else None
+        if not has_wifi:
+            self._log("This receiver has no Wi-Fi: it did not answer /par/net/wlan/mode.")
+            return
+
+        if self._wifi_mode == "adhoc":
+            self._log("Wi-Fi is already set to adhoc: it is raising its own network.")
+        else:
+            self._log(f"Wi-Fi is {self._wifi_mode or 'unknown'}.")
+        self._wifi_button.setVisible(self._session is None)
+
+    def _on_wifi_probe_finished(self) -> None:
+        probe = self._wifi_probe
+        self._wifi_probe = None
+        if probe is not None:
+            probe.deleteLater()
+
+    def _on_wifi_clicked(self) -> None:
+        receiver = self._selected_receiver()
+        if receiver is None or self._wifi_setup is not None:
+            return
+
+        ssid = suggested_ssid(receiver.model)
+        confirmed = QMessageBox.question(
+            self,
+            "Raise the receiver's own Wi-Fi?",
+            f"The receiver will start offering a network called {ssid}, and will "
+            f"restart to apply that.\n\n"
+            f"Afterwards, join {ssid} on the phone and use "
+            f"{DEFAULT_ACCESS_POINT_IP} port {DEFAULT_TCP_PORT}.\n\n"
+            "Nothing else about the receiver is changed.",
+            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Cancel,
+        )
+        if confirmed != QMessageBox.StandardButton.Ok:
+            return
+
+        self._wifi_button.setEnabled(False)
+        self._log(f"Setting up the receiver's Wi-Fi as {ssid}...")
+
+        setup = WiFiSetup(receiver.port, receiver.baud_rate, ssid, parent=self)
+        setup.status.connect(self._log)
+        setup.finished_setup.connect(self._on_wifi_setup_finished)
+        setup.finished.connect(self._on_wifi_setup_thread_finished)
+        self._wifi_setup = setup
+        setup.start()
+
+    def _on_wifi_setup_finished(self, ok: bool, message: str) -> None:
+        self._log(message)
+        if not ok:
+            return
+        # The receiver is rebooting, so the port it was found on is about
+        # to disappear. Clearing the list says that rather than leaving a
+        # row that will fail the moment it is used.
+        self._receiver_list.clear()
+        self._show_receiver_placeholder(
+            "The receiver is restarting.\nPress Detect again once it is back."
+        )
+
+    def _on_wifi_setup_thread_finished(self) -> None:
+        setup = self._wifi_setup
+        self._wifi_setup = None
+        if setup is not None:
+            setup.deleteLater()
+        self._wifi_button.setEnabled(True)
 
     def _selected_receiver(self) -> DetectedReceiver | None:
         item = self._receiver_list.currentItem()
