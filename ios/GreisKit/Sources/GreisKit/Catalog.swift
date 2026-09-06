@@ -56,6 +56,13 @@ public struct LogMessage: Identifiable, Sendable {
     /// arrives exactly as often as the message it is computed from — so the
     /// command builder skips it and the screen hides its rate.
     public var derived: Bool = false
+    /// Asked for on a timer with `print`, rather than subscribed to with
+    /// `em`. GREIS has no way to stream a parameter-tree value the way it
+    /// streams a message, so — like a derived entry — this gets no `em`
+    /// command. Unlike a derived one, though, something still has to go
+    /// out over the wire on a schedule to keep it current; `defaultPeriod`
+    /// is that schedule's period rather than a message rate.
+    public var polled: Bool = false
 
     public var id: String { code }
 }
@@ -157,6 +164,23 @@ public enum Catalog {
         mandatory: false
     )
 
+    public static let jstar = LogMessage(
+        code: "JSTAR",
+        label: "J-Star lock",
+        detail: "Whether the receiver has locked onto a JAVAD J-Star L-Band correction beam, and which one. Read from the receiver's own parameters on a timer rather than a subscribed message, because GREIS has no message for it.",
+        columns: [
+            LogColumn("jstar_beam_name") { .init($0.jstarBeamName) },
+            LogColumn("jstar_snr") { .init($0.jstarSNR) },
+            LogColumn("jstar_locked") { epoch in
+                guard let locked = epoch.jstarLocked else { return .missing }
+                return .text(locked ? "True" : "False")
+            },
+        ],
+        defaultPeriod: 2.0,
+        mandatory: false,
+        polled: true
+    )
+
     public static let radians = LogMessage(
         code: "RAD",
         label: "Position in radians",
@@ -194,7 +218,7 @@ public enum Catalog {
 
     /// In the order they are offered, which is the order their columns
     /// appear in the file: where you are, how fast, when, and with what.
-    public static let all: [LogMessage] = [pg, vg, st, rd, np, radians, ecef]
+    public static let all: [LogMessage] = [pg, vg, st, rd, np, jstar, radians, ecef]
 
     public static func message(code: String) -> LogMessage? {
         all.first { $0.code == code }

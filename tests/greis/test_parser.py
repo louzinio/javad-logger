@@ -290,6 +290,50 @@ def test_message_counts_are_a_copy_the_caller_cannot_write_through():
     assert parser.message_counts == {"PG": 1}
 
 
+# --- J-Star status, applied rather than parsed from the stream ---------
+
+
+def test_jppp_status_carries_forward_into_the_next_epoch():
+    parser = GreisParser("r1")
+    parser.apply_jppp_status(beam_name="AORW", snr="12")
+
+    epochs = parser.feed(_pg_message(1.0, 2.0, 3.0, sol_type=1))
+
+    assert len(epochs) == 1
+    assert epochs[0].jstar_beam_name == "AORW"
+    assert epochs[0].jstar_snr == "12"
+
+
+def test_jppp_status_updates_only_the_field_it_is_given():
+    # A poll that answers the beam name but not the SNR (or the other way
+    # round) should not blank out whatever the last one already found.
+    parser = GreisParser("r1")
+    parser.apply_jppp_status(beam_name="AORW", snr="12")
+    parser.apply_jppp_status(beam_name="POR")
+
+    epochs = parser.feed(_pg_message(1.0, 2.0, 3.0, sol_type=1))
+
+    assert epochs[0].jstar_beam_name == "POR"
+    assert epochs[0].jstar_snr == "12"
+
+
+def test_jppp_status_is_unset_until_a_poll_answers():
+    parser = GreisParser("r1")
+    epochs = parser.feed(_pg_message(1.0, 2.0, 3.0, sol_type=1))
+    assert epochs[0].jstar_beam_name is None
+    assert epochs[0].jstar_snr is None
+
+
+def test_reset_discards_the_jppp_status_too():
+    parser = GreisParser("r1")
+    parser.apply_jppp_status(beam_name="AORW", snr="12")
+
+    parser.reset()
+
+    epochs = parser.feed(_pg_message(1.0, 2.0, 3.0, sol_type=1))
+    assert epochs[0].jstar_beam_name is None
+
+
 # --- reset and the buffer ceiling ---------------------------------------
 
 

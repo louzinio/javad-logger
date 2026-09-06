@@ -106,6 +106,34 @@ def parse_model_reply(reply: bytes | str) -> str | None:
     return parse_parameter(reply, "/par/rcv/model")
 
 
+# --- J-Star (JPPP L-Band correction beam) --------------------------------
+#
+# J-Star is JAVAD's own PPP correction service, delivered over a set of
+# geostationary L-Band beams. Its status lives in the parameter tree, not
+# in a message - GREIS has no `em` subscription for it - so the only way to
+# read it is the same one-shot `print` query used for the model above,
+# repeated on a timer by whatever is driving the session.
+
+JPPP_BEAM_NAME = "/par/jppp/beam/cur/name"
+JPPP_BEAM_SNR = "/par/jppp/beam/cur/snr"
+"""Both read ``"unknown"`` until the L-Band demodulator has locked onto a
+beam (GREIS Reference Guide, Precise Point Positioning (PPP) Parameters).
+A receiver with no L-Band hardware or no J-Star subscription answers with
+that same string forever, which is a legitimate result and not a failure
+to ask."""
+
+QUERY_JPPP_BEAM_NAME = query(JPPP_BEAM_NAME)
+QUERY_JPPP_BEAM_SNR = query(JPPP_BEAM_SNR)
+
+
+def parse_jppp_beam_name(reply: bytes | str) -> str | None:
+    return parse_parameter(reply, JPPP_BEAM_NAME)
+
+
+def parse_jppp_beam_snr(reply: bytes | str) -> str | None:
+    return parse_parameter(reply, JPPP_BEAM_SNR)
+
+
 # --- the receiver's own Wi-Fi -------------------------------------------
 #
 # The one place this application writes to the receiver's configuration,

@@ -63,6 +63,11 @@ struct RecordView: View {
                         CardRow(label: "Total") { value(model.latest?.svTotal.map(String.init)) }
                     }
 
+                    CardHeader(title: "J-Star", code: "JSTAR")
+                    Card(radius: 22) {
+                        CardRow(label: "Lock", first: true) { value(jstarLockText) }
+                    }
+
                     CardHeader(title: "Socket")
                     Card(radius: 22) {
                         CardRow(label: "Throughput", first: true) {
@@ -176,6 +181,18 @@ struct RecordView: View {
             }
         }
         .padding(.top, 4)
+    }
+
+    /// `nil` until the first J-Star poll answers - not yet asked is a
+    /// different fact from asked and not locked, and the dash for "not
+    /// reported" should be reserved for the former.
+    private var jstarLockText: String? {
+        guard let epoch = model.latest, let beamName = epoch.jstarBeamName else { return nil }
+        guard epoch.jstarLocked == true else { return "Not locked" }
+        if let snr = epoch.jstarSNR, snr.lowercased() != "unknown" {
+            return "Locked - \(beamName), SNR \(snr)"
+        }
+        return "Locked - \(beamName)"
     }
 
     private func value(_ text: String?) -> some View {

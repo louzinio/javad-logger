@@ -73,6 +73,48 @@ final class ParserTests: XCTestCase {
         XCTAssertEqual(second.first?.svTotal, 32, "satellite counts must carry forward")
     }
 
+    // MARK: - J-Star status, applied rather than parsed from the stream
+
+    func testJPPPStatusCarriesForwardIntoTheNextEpoch() {
+        var parser = GreisParser(receiverID: "TEST")
+        parser.applyJPPPStatus(beamName: "AORW", snr: "12")
+
+        let epochs = parser.feed(Fixtures.pg())
+
+        XCTAssertEqual(epochs.first?.jstarBeamName, "AORW")
+        XCTAssertEqual(epochs.first?.jstarSNR, "12")
+    }
+
+    /// A poll that answers the beam name but not the SNR - or the other way
+    /// round - should not blank out whatever the last one already found.
+    func testJPPPStatusUpdatesOnlyTheFieldItIsGiven() {
+        var parser = GreisParser(receiverID: "TEST")
+        parser.applyJPPPStatus(beamName: "AORW", snr: "12")
+        parser.applyJPPPStatus(beamName: "POR")
+
+        let epochs = parser.feed(Fixtures.pg())
+
+        XCTAssertEqual(epochs.first?.jstarBeamName, "POR")
+        XCTAssertEqual(epochs.first?.jstarSNR, "12")
+    }
+
+    func testJPPPStatusIsNilUntilAPollAnswers() {
+        var parser = GreisParser(receiverID: "TEST")
+        let epochs = parser.feed(Fixtures.pg())
+        XCTAssertNil(epochs.first?.jstarBeamName)
+        XCTAssertNil(epochs.first?.jstarSNR)
+    }
+
+    func testResetDiscardsTheJPPPStatusToo() {
+        var parser = GreisParser(receiverID: "TEST")
+        parser.applyJPPPStatus(beamName: "AORW", snr: "12")
+
+        parser.reset()
+
+        let epochs = parser.feed(Fixtures.pg())
+        XCTAssertNil(epochs.first?.jstarBeamName)
+    }
+
     func testAMessageSplitAcrossReadsIsStillParsed() {
         var parser = GreisParser(receiverID: "TEST")
         let message = Fixtures.pg()
@@ -260,9 +302,46 @@ final class GeodesyTests: XCTestCase {
         XCTAssertTrue(Catalog.ecef.derived)
         XCTAssertFalse(Catalog.pg.derived)
 
-        let asked = Catalog.all.filter { !$0.derived }.map(\.code)
+        let asked = Catalog.all.filter { !$0.derived && !$0.polled }.map(\.code)
         XCTAssertFalse(asked.contains("ECEF"))
         XCTAssertEqual(asked, ["PG", "VG", "ST", "RD", "NP"])
+    }
+
+    /// Nothing may be asked of the receiver with `em` for a polled entry
+    /// either: J-Star's lock status lives in the parameter tree, and GREIS
+    /// has no message called JSTAR.
+    func testNoEmCommandIsSentForAPolledEntry() {
+        XCTAssertTrue(Catalog.jstar.polled)
+        XCTAssertFalse(Catalog.jstar.derived)
+
+        let asked = Catalog.all.filter { !$0.derived && !$0.polled }.map(\.code)
+        XCTAssertFalse(asked.contains("JSTAR"))
+    }
+
+    // MARK: - J-Star lock
+
+    func testJstarLockedIsNilBeforeAnyPollHasAnswered() {
+        // Distinct from "polled and not locked": nobody has asked yet.
+        let epoch = JavadEpoch(receiverID: "TEST", receivedAt: Date())
+        XCTAssertNil(epoch.jstarLocked)
+    }
+
+    func testJstarLockedIsFalseForTheUnknownPlaceholder() {
+        var epoch = JavadEpoch(receiverID: "TEST", receivedAt: Date())
+        epoch.jstarBeamName = "unknown"
+        XCTAssertEqual(epoch.jstarLocked, false)
+    }
+
+    func testJstarLockedIsTrueForARealBeamName() {
+        var epoch = JavadEpoch(receiverID: "TEST", receivedAt: Date())
+        epoch.jstarBeamName = "AORW"
+        XCTAssertEqual(epoch.jstarLocked, true)
+    }
+
+    func testJstarLockedTreatsThePlaceholderCaseInsensitively() {
+        var epoch = JavadEpoch(receiverID: "TEST", receivedAt: Date())
+        epoch.jstarBeamName = "Unknown"
+        XCTAssertEqual(epoch.jstarLocked, false)
     }
 
     func testECEFStillContributesItsColumns() {
@@ -315,7 +394,7 @@ final class RadianColumnTests: XCTestCase {
     }
 
     func testNeitherComputedEntryIsEverAskedOfTheReceiver() {
-        let asked = Catalog.all.filter { !$0.derived }.map(\.code)
+        let asked = Catalog.all.filter { !$0.derived && !$0.polled }.map(\.code)
         XCTAssertEqual(asked, ["PG", "VG", "ST", "RD", "NP"])
         XCTAssertEqual(Set(Catalog.all.filter(\.derived).map(\.code)), ["RAD", "ECEF"])
     }

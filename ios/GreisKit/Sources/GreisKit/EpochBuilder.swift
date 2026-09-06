@@ -35,6 +35,9 @@ public struct GreisEpochBuilder {
     public var svGalileo: Int?
     public var svBeiDou: Int?
 
+    public var jstarBeamName: String?
+    public var jstarSNR: String?
+
     public init(receiverID: String) {
         self.receiverID = receiverID
     }
@@ -93,6 +96,8 @@ public struct GreisEpochBuilder {
         epoch.svGLONASS = svGLONASS
         epoch.svGalileo = svGalileo
         epoch.svBeiDou = svBeiDou
+        epoch.jstarBeamName = jstarBeamName
+        epoch.jstarSNR = jstarSNR
         return epoch
     }
 }

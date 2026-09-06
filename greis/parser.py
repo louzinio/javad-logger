@@ -102,6 +102,21 @@ class GreisParser:
 
         return epochs
 
+    def apply_jppp_status(self, *, beam_name: str | None = None, snr: str | None = None) -> None:
+        """Record the answer to a J-Star poll.
+
+        Unlike every other field here, this does not arrive framed inside
+        the byte stream :meth:`feed` consumes - polling for it happens
+        outside this class, and the answer is handed in directly. It still
+        carries forward across epochs the same way: [PG] is what closes an
+        epoch, so a status that arrived between two of them shows up on the
+        next one rather than needing an epoch of its own.
+        """
+        if beam_name is not None:
+            self._builder.jstar_beam_name = beam_name
+        if snr is not None:
+            self._builder.jstar_snr = snr
+
     def reset(self) -> None:
         """Forget the partial buffer and the carried-forward state, so a
         reconnect does not put values from before the disconnection into

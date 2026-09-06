@@ -20,10 +20,14 @@ import pytest
 from greis import commands
 from greis.commands import (
     DISABLE_ALL,
+    QUERY_JPPP_BEAM_NAME,
+    QUERY_JPPP_BEAM_SNR,
     QUERY_MODEL,
     MessageRequest,
     enable,
     format_period,
+    parse_jppp_beam_name,
+    parse_jppp_beam_snr,
     parse_model_reply,
     start_logging,
     stop_logging,
@@ -209,6 +213,36 @@ def test_the_network_needs_a_name():
 def test_a_port_outside_the_range_is_refused():
     with pytest.raises(ValueError):
         commands.access_point_setup("MY-NET", tcp_port=70000)
+
+
+def test_jppp_beam_queries_ask_for_the_paths_the_reply_parsers_look_for():
+    assert "/par/jppp/beam/cur/name" in QUERY_JPPP_BEAM_NAME
+    assert "/par/jppp/beam/cur/snr" in QUERY_JPPP_BEAM_SNR
+
+
+def test_parse_jppp_beam_name_reads_a_locked_beam():
+    reply = b"RE001%\r\n/par/jppp/beam/cur/name=AORW\r\n"
+    assert parse_jppp_beam_name(reply) == "AORW"
+
+
+def test_parse_jppp_beam_name_reads_the_unknown_placeholder():
+    # This is what a receiver with no L-Band hardware, or one that has not
+    # locked onto a beam yet, answers with - a real value and not a failure
+    # to ask, so it is returned rather than treated like a missing reply.
+    reply = b'/par/jppp/beam/cur/name="unknown"\r\n'
+    assert parse_jppp_beam_name(reply) == "unknown"
+
+
+def test_parse_jppp_beam_snr_survives_a_reply_buried_in_binary():
+    reply = b"\x00\xffPG01E junk\r\n/par/jppp/beam/cur/snr=12\r\n\x00"
+    assert parse_jppp_beam_snr(reply) == "12"
+
+
+def test_parse_jppp_beam_name_is_none_when_the_receiver_never_mentions_it():
+    assert parse_jppp_beam_name(b"PG01E\x00\x00binary") is None
+
+
+# --- the offered network name -------------------------------------------
 
 
 def test_the_offered_name_comes_from_the_receiver():

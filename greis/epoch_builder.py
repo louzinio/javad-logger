@@ -50,6 +50,9 @@ class GreisEpochBuilder:
     sv_galileo: int | None = None
     sv_beidou: int | None = None
 
+    jstar_beam_name: str | None = None
+    jstar_snr: str | None = None
+
     def receiver_date(self) -> date | None:
         """``None`` for a date [RD] has not sent, and also for one that is
         not a real calendar date - a corrupted message that passed the
@@ -100,4 +103,6 @@ class GreisEpochBuilder:
             sv_glonass=self.sv_glonass,
             sv_galileo=self.sv_galileo,
             sv_beidou=self.sv_beidou,
+            jstar_beam_name=self.jstar_beam_name,
+            jstar_snr=self.jstar_snr,
         )

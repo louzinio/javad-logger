@@ -43,6 +43,41 @@ final class CommandsTests: XCTestCase {
     func testAReplyWithoutTheParameterIsNilRatherThanAnError() {
         XCTAssertNil(GreisCommands.parseModelReply("PG01E\u{0}\u{0}garbage"))
     }
+
+    // MARK: - J-Star (JPPP L-Band correction beam)
+
+    func testJPPPBeamQueriesAskForThePathsTheReplyParsersLookFor() {
+        XCTAssertTrue(GreisCommands.queryJPPPBeamName.contains("/par/jppp/beam/cur/name"))
+        XCTAssertTrue(GreisCommands.queryJPPPBeamSNR.contains("/par/jppp/beam/cur/snr"))
+    }
+
+    func testParseJPPPBeamNameReadsALockedBeam() {
+        XCTAssertEqual(
+            GreisCommands.parseJPPPBeamName("RE001%\r\n/par/jppp/beam/cur/name=AORW\r\n"),
+            "AORW"
+        )
+    }
+
+    /// What a receiver with no L-Band hardware, or one that has not locked
+    /// onto a beam yet, answers with - a real value and not a failure to
+    /// ask, so it is returned rather than treated like a missing reply.
+    func testParseJPPPBeamNameReadsTheUnknownPlaceholder() {
+        XCTAssertEqual(
+            GreisCommands.parseJPPPBeamName("/par/jppp/beam/cur/name=\"unknown\""),
+            "unknown"
+        )
+    }
+
+    func testParseJPPPBeamSNRSurvivesAReplyBuriedInBinary() {
+        XCTAssertEqual(
+            GreisCommands.parseJPPPBeamSNR("\u{0}\u{FF}PG01E junk\r\n/par/jppp/beam/cur/snr=12\r\n\u{0}"),
+            "12"
+        )
+    }
+
+    func testParseJPPPBeamNameIsNilWhenTheReceiverNeverMentionsIt() {
+        XCTAssertNil(GreisCommands.parseJPPPBeamName("PG01E\u{0}\u{0}binary"))
+    }
 }
 
 final class CSVWriterTests: XCTestCase {
@@ -184,5 +219,48 @@ final class ReplaySessionTests: XCTestCase {
         let sent = await transport.sentCommands
         XCTAssertEqual(sent.first, "dm")
         XCTAssertEqual(sent.last, "dm", "the receiver is not left streaming")
+    }
+
+    /// J-Star names no GREIS message, so it must get no `em` - only PG's -
+    /// yet it is still asked for, just with `print` on a timer instead, and
+    /// the answer has to reach the row the same way every other field does.
+    func testJStarGetsNoEmCommandButIsStillPolledAndReachesTheRow() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+
+        let reply = Array("RE001%\r\n/par/jppp/beam/cur/name=AORW\r\n/par/jppp/beam/cur/snr=12\r\n".utf8)
+        let stream = reply + Fixtures.pg()
+
+        let transport = ReplayTransport(data: Data(stream), pace: .immediate)
+        let session = GreisSession(
+            transport: transport,
+            configuration: .init(
+                receiverID: "REPLAY",
+                selection: [.init(code: "PG", period: 1)],
+                polled: [.init(code: "JSTAR", period: 0.05)],
+                directory: directory,
+                sendsCommands: true
+            )
+        )
+
+        var finalURL: URL?
+        for await event in await session.run() {
+            if case .finished(_, let url) = event { finalURL = url }
+        }
+
+        let sent = await transport.sentCommands
+        XCTAssertFalse(sent.contains { $0.hasPrefix("em") && $0.contains("JSTAR") })
+        XCTAssertTrue(sent.contains(GreisCommands.queryJPPPBeamName))
+        XCTAssertTrue(sent.contains(GreisCommands.queryJPPPBeamSNR))
+
+        let url = try XCTUnwrap(finalURL)
+        let lines = try String(contentsOf: url, encoding: .utf8).split(whereSeparator: \.isNewline)
+        let header = lines[0].split(separator: ",", omittingEmptySubsequences: false)
+        let row = lines[1].split(separator: ",", omittingEmptySubsequences: false)
+        let cell = { (name: String) in row[header.firstIndex(of: Substring(name))!] }
+
+        XCTAssertEqual(cell("jstar_beam_name"), "AORW")
+        XCTAssertEqual(cell("jstar_snr"), "12")
+        XCTAssertEqual(cell("jstar_locked"), "True")
     }
 }

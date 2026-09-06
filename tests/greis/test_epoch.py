@@ -120,6 +120,28 @@ def test_sv_total_is_zero_when_np_reported_no_satellites_at_all():
     assert _epoch(sv_gps=0, sv_glonass=0, sv_galileo=0, sv_beidou=0).sv_total == 0
 
 
+# --- J-Star lock ---------------------------------------------------------
+
+
+def test_jstar_locked_is_none_before_any_poll_has_answered():
+    # Distinct from "polled and not locked": nobody has asked yet.
+    assert _epoch().jstar_locked is None
+
+
+def test_jstar_locked_is_false_for_the_unknown_placeholder():
+    # What a receiver with no L-Band hardware, or one that has not locked
+    # onto a beam yet, answers with - a real answer, not a missing one.
+    assert _epoch(jstar_beam_name="unknown").jstar_locked is False
+
+
+def test_jstar_locked_is_true_for_a_real_beam_name():
+    assert _epoch(jstar_beam_name="AORW").jstar_locked is True
+
+
+def test_jstar_locked_treats_the_placeholder_case_insensitively():
+    assert _epoch(jstar_beam_name="Unknown").jstar_locked is False
+
+
 # --- position and time --------------------------------------------------
 
 

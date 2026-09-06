@@ -63,6 +63,13 @@ class LogMessage:
     that walks the catalogue - the checkboxes, the CSV header, the column
     order - should treat it the same way. Only the two places that talk to
     the receiver need to know the difference."""
+    polled: bool = False
+    """Asked for on a timer with ``print``, rather than subscribed to with
+    ``em``. GREIS has no way to stream a parameter-tree value the way it
+    streams a message, so - like a derived entry - this gets no ``em``
+    command. Unlike a derived one, though, something still has to go out
+    over the wire on a schedule to keep it current; :attr:`default_period_s`
+    is that schedule's period rather than a message rate."""
 
 
 def _fmt_date(epoch: JavadEpoch) -> str | None:
@@ -166,6 +173,23 @@ NP = LogMessage(
     ),
 )
 
+JSTAR = LogMessage(
+    code="JSTAR",
+    label="J-Star lock",
+    description=(
+        "Whether the receiver has locked onto a JAVAD J-Star L-Band correction beam, "
+        "and which one. Read from the receiver's own parameters on a timer rather than "
+        "a subscribed message, because GREIS has no message for it."
+    ),
+    default_period_s=2.0,
+    polled=True,
+    columns=(
+        Column("jstar_beam_name", lambda e: e.jstar_beam_name),
+        Column("jstar_snr", lambda e: e.jstar_snr),
+        Column("jstar_locked", lambda e: e.jstar_locked),
+    ),
+)
+
 RADIANS = LogMessage(
     code="RAD",
     label="Position in radians",
@@ -204,7 +228,7 @@ ECEF = LogMessage(
     ),
 )
 
-CATALOG: tuple[LogMessage, ...] = (PG, VG, ST, RD, NP, RADIANS, ECEF)
+CATALOG: tuple[LogMessage, ...] = (PG, VG, ST, RD, NP, JSTAR, RADIANS, ECEF)
 """In the order they are offered, which is the order their columns appear
 in the file: where you are, how fast, when, and with what."""
 

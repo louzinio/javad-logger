@@ -60,6 +60,8 @@ FULL_EPOCH = JavadEpoch(
     sv_glonass=4,
     sv_galileo=6,
     sv_beidou=14,
+    jstar_beam_name="AORW",
+    jstar_snr="12",
 )
 """Every message enabled and every field reported - the state every column
 should have something to say about."""
@@ -202,6 +204,12 @@ DERIVED_CODES = {"ECEF", "RAD"}
 without meaning to fails a test: a real message marked derived would get no
 `em`, and the file would quietly lose its columns."""
 
+POLLED_CODES = {"JSTAR"}
+"""The entries read from the parameter tree with `print` on a timer rather
+than subscribed to with `em`. Listed for the same reason as
+:data:`DERIVED_CODES`: a real message marked polled would never be asked
+for as a message, and the file would quietly lose its columns."""
+
 
 def test_only_the_computed_entries_are_derived():
     for message in CATALOG:
@@ -209,10 +217,16 @@ def test_only_the_computed_entries_are_derived():
         assert message.derived is expected, message.code
 
 
+def test_only_the_parameter_entries_are_polled():
+    for message in CATALOG:
+        expected = message.code in POLLED_CODES
+        assert message.polled is expected, message.code
+
+
 def test_every_message_the_receiver_is_asked_for_has_a_greis_code():
-    """A derived entry's code is a label for this application only. The
-    rest go straight into an `em` path, so they have to be real."""
-    asked = [m.code for m in CATALOG if not m.derived]
+    """A derived or polled entry's code is a label for this application
+    only. The rest go straight into an `em` path, so they have to be real."""
+    asked = [m.code for m in CATALOG if not m.derived and not m.polled]
     assert asked == ["PG", "VG", "ST", "RD", "NP"]
 
 

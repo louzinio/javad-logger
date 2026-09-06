@@ -101,6 +101,13 @@ class JavadEpoch:
     sv_galileo: int | None = None
     sv_beidou: int | None = None
 
+    # --- J-Star (JPPP L-Band) lock, polled rather than streamed ---
+    jstar_beam_name: str | None = None
+    """The L-Band beam's name once locked, or GREIS's own ``"unknown"``
+    while it is not. ``None`` means no poll has answered yet, which is a
+    third state distinct from either."""
+    jstar_snr: str | None = None
+
     @property
     def time_of_day(self) -> time | None:
         return self.utc_datetime.time() if self.utc_datetime is not None else None
@@ -197,6 +204,16 @@ class JavadEpoch:
         if all(count is None for count in counts):
             return None
         return sum(count for count in counts if count is not None)
+
+    @property
+    def jstar_locked(self) -> bool | None:
+        """``None`` before the first J-Star poll answers. After that, whether
+        the beam name is anything other than GREIS's own ``"unknown"``
+        placeholder - the same test a human would make reading the raw
+        parameter."""
+        if self.jstar_beam_name is None:
+            return None
+        return self.jstar_beam_name.lower() != "unknown"
 
 
 def now_utc() -> datetime:

@@ -166,6 +166,19 @@ def test_snapshot_carries_velocity_and_satellite_counts_across_two_positions():
         assert epoch.sv_total == 13
 
 
+def test_snapshot_carries_the_jppp_status_the_same_way_as_satellite_counts():
+    builder = _builder(jstar_beam_name="AORW", jstar_snr="12")
+
+    builder.latitude_deg = 32.0
+    first = builder.snapshot()
+    builder.latitude_deg = 32.1
+    second = builder.snapshot()
+
+    for epoch in (first, second):
+        assert epoch.jstar_beam_name == "AORW"
+        assert epoch.jstar_snr == "12"
+
+
 def test_a_snapshot_is_not_affected_by_later_changes_to_the_builder():
     builder = _builder(latitude_deg=32.0, sv_gps=9)
     epoch = builder.snapshot()

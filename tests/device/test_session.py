@@ -44,6 +44,7 @@ from greis.commands import DISABLE_ALL, enable  # noqa: E402
 PG = BY_CODE["PG"]
 VG = BY_CODE["VG"]
 NP = BY_CODE["NP"]
+JSTAR = BY_CODE["JSTAR"]
 
 DEADLINE_S = 5.0
 """How long a test will wait for something that should take milliseconds.
@@ -281,6 +282,48 @@ def test_the_session_opens_the_port_it_was_configured_with(
 
     assert fake.constructed_with == [("COM7", 115200)]
     assert fake.opens == 1
+
+
+# --- J-Star: polled instead of subscribed --------------------------------
+
+
+def test_jstar_gets_no_em_command_but_is_still_polled_and_reaches_the_row(
+    qapp: object, fake_serial: Callable[..., object], tmp_path: Path, pg_message: Callable[..., bytes]
+) -> None:
+    reply = b"RE001%\r\n/par/jppp/beam/cur/name=AORW\r\n/par/jppp/beam/cur/snr=12\r\n"
+    fake = fake_serial(chunks=[reply + pg_message(32.0, 34.0)])
+    config = make_config(tmp_path, selection=((PG, 1.0), (JSTAR, 2.0)))
+    session = LoggingSession(config)
+
+    with running(session):
+        assert fake.exhausted.wait(DEADLINE_S)
+
+    # JSTAR names no GREIS message, so start_logging() gets no `em` for it -
+    # only PG's, the same as a derived entry would.
+    enables = [command for command in fake.commands if command.startswith("em")]
+    assert all("JSTAR" not in command for command in enables)
+    # It is still asked for, just with `print` on a timer instead.
+    assert any("/par/jppp/beam/cur/name" in command for command in fake.commands)
+    assert any("/par/jppp/beam/cur/snr" in command for command in fake.commands)
+
+    header = list(csv.reader(config.output_path.read_text(encoding="utf-8").splitlines()))[0]
+    (row,) = data_rows(config.output_path)
+    cells = dict(zip(header, row))
+    assert cells["jstar_beam_name"] == "AORW"
+    assert cells["jstar_snr"] == "12"
+    assert cells["jstar_locked"] == "True"
+
+
+def test_jstar_not_selected_means_no_polling_at_all(
+    qapp: object, fake_serial: Callable[..., object], tmp_path: Path, pg_message: Callable[..., bytes]
+) -> None:
+    fake = fake_serial(chunks=[positions(1, pg_message)])
+    session = LoggingSession(make_config(tmp_path))  # PG only
+
+    with running(session):
+        assert fake.exhausted.wait(DEADLINE_S)
+
+    assert not any("jppp" in command for command in fake.commands)
 
 
 # --- stopping ------------------------------------------------------------

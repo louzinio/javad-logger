@@ -24,13 +24,22 @@ struct Selection: Codable, Equatable {
         periods[message.code] ?? message.defaultPeriod
     }
 
-    /// What the receiver is actually asked for.
+    /// What the receiver is actually asked for with `em`.
     ///
     /// A derived entry is left out: it has no GREIS message to enable, and
-    /// asking for "ECEF" would be asking for a name GREIS does not have.
+    /// asking for "ECEF" would be asking for a name GREIS does not have. A
+    /// polled entry - J-Star's lock status - is left out for the same
+    /// reason: it lives in the parameter tree, not in a message.
     var requests: [GreisCommands.MessageRequest] {
         Catalog.all
-            .filter { isOn($0) && !$0.derived }
+            .filter { isOn($0) && !$0.derived && !$0.polled }
+            .map { .init(code: $0.code, period: period($0)) }
+    }
+
+    /// The entries asked for with `print` on a timer instead of `em`.
+    var polledRequests: [GreisCommands.MessageRequest] {
+        Catalog.all
+            .filter { isOn($0) && $0.polled }
             .map { .init(code: $0.code, period: period($0)) }
     }
 
@@ -250,6 +259,7 @@ final class AppModel {
             configuration: .init(
                 receiverID: receiverModel ?? "javad",
                 selection: selection.requests,
+                polled: selection.polledRequests,
                 directory: documentsDirectory,
                 sendsCommands: !link.useReplay
             )

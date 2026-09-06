@@ -62,6 +62,13 @@ public struct JavadEpoch: Equatable, Sendable {
     public var svGalileo: Int?
     public var svBeiDou: Int?
 
+    // J-Star (JPPP L-Band) lock, polled rather than streamed
+    /// The L-Band beam's name once locked, or GREIS's own "unknown" while
+    /// it is not. `nil` means no poll has answered yet, which is a third
+    /// state distinct from either.
+    public var jstarBeamName: String?
+    public var jstarSNR: String?
+
     public init(receiverID: String, receivedAt: Date) {
         self.receiverID = receiverID
         self.receivedAt = receivedAt
@@ -134,6 +141,14 @@ public struct JavadEpoch: Equatable, Sendable {
         let counts = [svGPS, svGLONASS, svGalileo, svBeiDou]
         guard counts.contains(where: { $0 != nil }) else { return nil }
         return counts.compactMap { $0 }.reduce(0, +)
+    }
+
+    /// `nil` before the first J-Star poll answers. After that, whether the
+    /// beam name is anything other than GREIS's own "unknown" placeholder -
+    /// the same test a human would make reading the raw parameter.
+    public var jstarLocked: Bool? {
+        guard let jstarBeamName else { return nil }
+        return jstarBeamName.lowercased() != "unknown"
     }
 
     /// The receiver's date as `YYYY-MM-DD`, or nil.

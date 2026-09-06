@@ -225,6 +225,19 @@ def _solution(epoch: JavadEpoch) -> str | None:
     return f"{epoch.sol_type} - {epoch.sol_type_label}"
 
 
+def _jstar_lock(epoch: JavadEpoch) -> str | None:
+    """``None`` until the first J-Star poll answers - not yet asked is a
+    different fact from asked and not locked, and the dash for "not
+    reported" should be reserved for the former."""
+    if epoch.jstar_beam_name is None:
+        return None
+    if not epoch.jstar_locked:
+        return "Not locked"
+    if epoch.jstar_snr and epoch.jstar_snr.lower() != "unknown":
+        return f"Locked - {epoch.jstar_beam_name}, SNR {epoch.jstar_snr}"
+    return f"Locked - {epoch.jstar_beam_name}"
+
+
 LIVE_SECTIONS: tuple[tuple[str, tuple[_LiveField, ...]], ...] = (
     (
         "Time",
@@ -267,6 +280,10 @@ LIVE_SECTIONS: tuple[tuple[str, tuple[_LiveField, ...]], ...] = (
             _LiveField("BeiDou", lambda e: e.sv_beidou),
             _LiveField("Total", lambda e: e.sv_total),
         ),
+    ),
+    (
+        "J-Star",
+        (_LiveField("Lock", _jstar_lock),),
     ),
 )
 

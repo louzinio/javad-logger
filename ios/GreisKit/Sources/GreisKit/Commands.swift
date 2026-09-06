@@ -54,30 +54,75 @@ public enum GreisCommands {
 
     public static func stopLogging() -> [String] { [disableAll] }
 
-    /// The model name out of a reply to `queryModel`.
+    /// The value out of a `<path>=<value>` reply, wherever in the text it
+    /// falls. Shared by every one-shot `print` query this application sends
+    /// - the model, and the J-Star beam status below - because a receiver
+    /// answers all of them the same way: a line containing the path, an
+    /// `=`, and the value, buried in however much else was on the wire when
+    /// the reply arrived.
     ///
     /// `nil` when the reply does not contain the parameter at all, which is
     /// the normal answer from a connection that is streaming binary: a
     /// receiver mid-stream can drown the reply in [PG] messages, and a
-    /// missing name is not a reason to refuse to log.
-    public static func parseModelReply(_ reply: String) -> String? {
-        let marker = "/par/rcv/model"
+    /// missing value is not a reason to refuse to log.
+    private static func parseParameter(_ reply: String, path: String) -> String? {
         for line in reply.split(whereSeparator: \.isNewline) {
-            guard let markerRange = line.range(of: marker) else { continue }
+            guard let markerRange = line.range(of: path) else { continue }
             let rest = line[markerRange.lowerBound...]
             guard let equals = rest.firstIndex(of: "=") else { continue }
-            let name = rest[rest.index(after: equals)...]
+            let value = rest[rest.index(after: equals)...]
                 .trimmingCharacters(in: .whitespaces)
                 .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
                 .trimmingCharacters(in: .whitespaces)
-            if !name.isEmpty { return name }
+            if !value.isEmpty { return value }
         }
         return nil
+    }
+
+    public static func parseModelReply(_ reply: String) -> String? {
+        parseParameter(reply, path: "/par/rcv/model")
     }
 
     public static func parseModelReply(_ reply: Data) -> String? {
         guard let text = String(data: reply, encoding: .isoLatin1) else { return nil }
         return parseModelReply(text)
+    }
+
+    // MARK: - J-Star (JPPP L-Band correction beam)
+    //
+    // J-Star is JAVAD's own PPP correction service, delivered over a set of
+    // geostationary L-Band beams. Its status lives in the parameter tree,
+    // not in a message - GREIS has no `em` subscription for it - so the
+    // only way to read it is the same one-shot `print` query used for the
+    // model above, repeated on a timer by whatever is driving the session.
+
+    public static let jppBeamNamePath = "/par/jppp/beam/cur/name"
+    public static let jppBeamSNRPath = "/par/jppp/beam/cur/snr"
+
+    /// Both read "unknown" until the L-Band demodulator has locked onto a
+    /// beam (GREIS Reference Guide, Precise Point Positioning (PPP)
+    /// Parameters). A receiver with no L-Band hardware or no J-Star
+    /// subscription answers with that same string forever, which is a
+    /// legitimate result and not a failure to ask.
+    public static let queryJPPPBeamName = "print,\(jppBeamNamePath):on"
+    public static let queryJPPPBeamSNR = "print,\(jppBeamSNRPath):on"
+
+    public static func parseJPPPBeamName(_ reply: String) -> String? {
+        parseParameter(reply, path: jppBeamNamePath)
+    }
+
+    public static func parseJPPPBeamName(_ reply: Data) -> String? {
+        guard let text = String(data: reply, encoding: .isoLatin1) else { return nil }
+        return parseJPPPBeamName(text)
+    }
+
+    public static func parseJPPPBeamSNR(_ reply: String) -> String? {
+        parseParameter(reply, path: jppBeamSNRPath)
+    }
+
+    public static func parseJPPPBeamSNR(_ reply: Data) -> String? {
+        guard let text = String(data: reply, encoding: .isoLatin1) else { return nil }
+        return parseJPPPBeamSNR(text)
     }
 
     /// GREIS commands go out terminated by CR LF.

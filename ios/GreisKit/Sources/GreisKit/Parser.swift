@@ -34,6 +34,19 @@ public struct GreisParser {
         self.builder = GreisEpochBuilder(receiverID: receiverID)
     }
 
+    /// Record the answer to a J-Star poll.
+    ///
+    /// Unlike every other field here, this does not arrive framed inside
+    /// the byte stream `feed` consumes - polling for it happens outside
+    /// this type, and the answer is handed in directly. It still carries
+    /// forward across epochs the same way: [PG] is what closes an epoch, so
+    /// a status that arrived between two of them shows up on the next one
+    /// rather than needing an epoch of its own.
+    public mutating func applyJPPPStatus(beamName: String? = nil, snr: String? = nil) {
+        if let beamName { builder.jstarBeamName = beamName }
+        if let snr { builder.jstarSNR = snr }
+    }
+
     /// Forget the partial buffer and the carried-forward state, so a
     /// reconnect cannot put values from before the drop into rows recorded
     /// after it.

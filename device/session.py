@@ -46,7 +46,15 @@ from PySide6.QtCore import QThread, Signal
 
 from device.serial_port import PortError, SerialPort
 from greis.catalog import LogMessage, period_label
-from greis.commands import MessageRequest, start_logging, stop_logging
+from greis.commands import (
+    QUERY_JPPP_BEAM_NAME,
+    QUERY_JPPP_BEAM_SNR,
+    MessageRequest,
+    parse_jppp_beam_name,
+    parse_jppp_beam_snr,
+    start_logging,
+    stop_logging,
+)
 from greis.epoch import JavadEpoch
 from greis.parser import GreisParser
 from recording.csv_writer import CsvLogWriter
@@ -74,6 +82,15 @@ log pane has not yet walked away."""
 DISPLAY_INTERVAL_S = 0.5
 """The shortest gap between two updates sent to the GUI. Only epochs and
 row counts are throttled by it - the file gets every epoch regardless."""
+
+JSTAR_REPLY_BUFFER_MAX_BYTES = 2048
+"""How much raw stream this keeps around while waiting for a J-Star poll's
+reply. A reply itself is a short line, but between one poll and the next
+the port keeps delivering ordinary binary messages, and those bytes have
+to sit somewhere until either the reply is found in them or they age out.
+Trimming to this size the same way :class:`greis.parser.GreisParser` trims
+its own buffer keeps a session that never gets an answer - no L-Band
+hardware, no antenna, no subscription - from growing this without bound."""
 
 
 @dataclass(frozen=True)
@@ -176,12 +193,14 @@ class LoggingSession(QThread):
     def _configure_receiver(self, port: SerialPort) -> None:
         """Silence the receiver, then ask it for the ticked messages."""
         # A derived entry has no message to enable: it is computed here
-        # from one that is already coming. Asking the receiver for "ECEF"
-        # would be asking for something GREIS has no such name for.
+        # from one that is already coming. A polled entry has no message
+        # either - it is read from the parameter tree on a timer instead,
+        # by _record(). Asking the receiver for "ECEF" or "JSTAR" would be
+        # asking for something GREIS has no such name for.
         requests = tuple(
             MessageRequest(code=message.code, period_s=period_s)
             for message, period_s in self._config.selection
-            if not message.derived
+            if not message.derived and not message.polled
         )
         for command in start_logging(requests):
             port.write_line(command)
@@ -193,12 +212,12 @@ class LoggingSession(QThread):
 
         port.discard_input()
 
-        # Says what was asked for, so a derived column is not reported as
-        # something the receiver was told to send. It was not.
+        # Says what was asked for, so a derived or polled column is not
+        # reported as something the receiver was told to stream. It was not.
         enabled = ", ".join(
             f"[{message.code}] every {period_label(period_s)}"
             for message, period_s in self._config.selection
-            if not message.derived
+            if not message.derived and not message.polled
         )
         self.status.emit(
             f"{self._config.port} at {self._config.baud_rate} baud: asked for {enabled}."
@@ -208,12 +227,26 @@ class LoggingSession(QThread):
         )
         if computed:
             self.status.emit(f"Also writing {computed}, computed here from what arrives.")
+        polled = ", ".join(
+            f"{message.label} every {period_label(period_s)}"
+            for message, period_s in self._config.selection
+            if message.polled
+        )
+        if polled:
+            self.status.emit(f"Also polling {polled}, since GREIS has no message for it.")
 
     def _record(self, port: SerialPort, writer: CsvLogWriter) -> None:
         """Read, parse and write until Stop is asked for or the port dies."""
         parser = GreisParser(self._config.receiver_id)
         configured_at = time.monotonic()
         warned_about_silence = False
+
+        jstar_period_s = next(
+            (period_s for message, period_s in self._config.selection if message.code == "JSTAR"),
+            None,
+        )
+        jstar_reply_buffer = bytearray()
+        next_jstar_poll_at = time.monotonic()
 
         while not self._stop_requested.is_set():
             try:
@@ -223,6 +256,11 @@ class LoggingSession(QThread):
                 self._publish(None, writer.row_count, force=True)
                 self.failed.emit(str(exc))
                 return
+
+            if jstar_period_s is not None:
+                next_jstar_poll_at = self._poll_jstar(
+                    port, parser, data, jstar_reply_buffer, next_jstar_poll_at, jstar_period_s
+                )
 
             epochs = parser.feed(data) if data else []
             for epoch in epochs:
@@ -245,6 +283,54 @@ class LoggingSession(QThread):
                     warned_about_silence = True
 
         self._publish(None, writer.row_count, force=True)
+
+    def _poll_jstar(
+        self,
+        port: SerialPort,
+        parser: GreisParser,
+        data: bytes,
+        reply_buffer: bytearray,
+        next_poll_at: float,
+        period_s: float,
+    ) -> float:
+        """Keep the J-Star lock status current, and return the next time to poll.
+
+        There is no message to subscribe to, so this does the two things a
+        subscription would otherwise do for it: send the query again once a
+        period has passed, and watch everything the port delivers for the
+        answer. The reply sits in the same stream as every binary message
+        still arriving in the meantime, which is exactly the trick
+        :func:`device.discovery._query_model` already relies on - the path
+        text is not going to turn up by accident in a run of PG/VG/ST bytes,
+        so a plain substring search finds it without needing to know where
+        the reply starts or ends.
+        """
+        if data:
+            reply_buffer.extend(data)
+            # Trimmed the same way GreisParser trims its own buffer: a
+            # receiver with no L-Band hardware never answers, and without
+            # this the buffer would grow for as long as the session runs.
+            del reply_buffer[:-JSTAR_REPLY_BUFFER_MAX_BYTES]
+
+            text = bytes(reply_buffer)
+            beam_name = parse_jppp_beam_name(text)
+            snr = parse_jppp_beam_snr(text)
+            if beam_name is not None or snr is not None:
+                parser.apply_jppp_status(beam_name=beam_name, snr=snr)
+                reply_buffer.clear()
+
+        now = time.monotonic()
+        if now >= next_poll_at:
+            try:
+                port.write_line(QUERY_JPPP_BEAM_NAME)
+                port.write_line(QUERY_JPPP_BEAM_SNR)
+            except PortError as exc:
+                # The main read loop will see the same dead port on its next
+                # call and end the session properly; this is not the place
+                # to report it twice.
+                _logger.debug("%s: could not poll J-Star status: %s", self._config.port, exc)
+            return now + period_s
+        return next_poll_at
 
     def _publish(self, epoch: JavadEpoch | None, rows: int, *, force: bool = False) -> None:
         """Send an epoch and a row count to the GUI, at most every
