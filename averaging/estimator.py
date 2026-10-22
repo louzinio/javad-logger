@@ -56,6 +56,7 @@ from datetime import datetime
 from pathlib import Path
 
 from greis.epoch import SOL_TYPE_LABELS
+from averaging.noise_model import AxisFit, fit_axis
 from greis.geodesy import ecef_to_geodetic, enu_rotation, geodetic_to_ecef
 
 Matrix = list[list[float]]
@@ -132,6 +133,9 @@ class Fix:
     selected: bool = False
     """Of the solution type being averaged."""
     rejected: bool = False
+    session: int = 0
+    """Which file it came from, when several recordings of the same point
+    are averaged together."""
 
 
 @dataclass
@@ -252,8 +256,10 @@ def read_recordings(paths: Iterable[Path]) -> Recording:
     fixes: list[Fix] = []
     without = 0
     sources: list[str] = []
-    for path in paths:
+    for session, path in enumerate(paths):
         part = read_recording(Path(path).read_text(encoding="utf-8-sig"), Path(path).name)
+        for fix in part.fixes:
+            fix.session = session
         fixes.extend(part.fixes)
         without += part.rows_without_position
         sources.append(Path(path).name)
@@ -354,6 +360,13 @@ class Result:
     small_sample_factor: tuple[float, float, float]
     """How much each axis's variance was widened for having few effective
     epochs; 1.0 when there were plenty."""
+    noise_models: tuple[str, str, str]
+    """The noise model maximum likelihood chose for each axis."""
+    correlation_time_s: tuple[float, float, float]
+    sessions: int
+    between_session_sigma: tuple[float, float, float]
+    """The scatter between separate recordings beyond what each one's own
+    uncertainty explains; 0 for a single recording."""
     effective_epochs: float
     floor_m: tuple[float, float]
     scatter_ratio: float | None
@@ -570,21 +583,46 @@ def average(recording: Recording, settings: Settings = Settings()) -> Result:
                 of_mean[a][b] += fix.weight * fix.weight * r[a] * r[b] * bessel
                 one_epoch[a][b] += fix.weight * r[a] * r[b] * bessel
 
+    fits: list[list[AxisFit]] = [[], [], []]
+    between = [0.0, 0.0, 0.0]
+    sessions = sorted({fix.session for fix in used})
     if settings.correct_for_correlation:
-        tau = tuple(
-            integrated_autocorrelation_time([r[k] * math.sqrt(fix.weight) for fix, r in zip(used, residuals)])
-            for k in range(3)
-        )
+        # Each axis of each session gets its own noise model and GLS mean
+        # (see averaging.noise_model); sessions are then combined below.
+        variances = [0.0, 0.0, 0.0]
+        for k in range(3):
+            means, session_variances = [], []
+            for session in sessions:
+                members = [fix for fix in used if fix.session == session]
+                if len(members) < 2:
+                    continue
+                fit = fit_axis(
+                    [fix.enu[k] for fix in members],
+                    [fix.sigma * fix.sigma / fix.huber for fix in members],
+                    _seconds(members),
+                )
+                fits[k].append(fit)
+                means.append(fit.mean)
+                # Student's t on the session's own effective epochs, so a
+                # short or strongly correlated session is not over-trusted.
+                session_variances.append(fit.variance_of_mean * small_sample_factor(fit.effective_epochs))
+            mean[k], variances[k], between[k] = _combine_sessions(means, session_variances)
+        tau = tuple(len(used) / max(sum(fit.effective_epochs for fit in fits[k]), 1.0) for k in range(3))
+        small_sample = tuple(max(small_sample_factor(fit.effective_epochs) for fit in fits[k]) for k in range(3))
+        # The noise model is fitted axis by axis; the correlation between
+        # axes is kept from the residuals, which is all it is needed for -
+        # the tilt of the error ellipse.
+        sandwich = [of_mean[a][a] for a in range(3)]
+        for a in range(3):
+            for b in range(3):
+                if a == b:
+                    of_mean[a][b] = variances[a]
+                else:
+                    rho = of_mean[a][b] / math.sqrt(sandwich[a] * sandwich[b]) if sandwich[a] * sandwich[b] > 0 else 0.0
+                    of_mean[a][b] = rho * math.sqrt(variances[a] * variances[b])
     else:
         tau = (1.0, 1.0, 1.0)
-    # A variance estimated from N/τ effective epochs is itself uncertain,
-    # and with only a handful of them it is usually too small. Student's t
-    # with N/τ - 1 degrees of freedom widens it by exactly the amount that
-    # keeps a 95% interval at 95%; with plenty of data the factor is 1.
-    small_sample = tuple(small_sample_factor(n / t) for t in tau)
-    for a in range(3):
-        for b in range(3):
-            of_mean[a][b] *= math.sqrt(tau[a] * tau[b] * small_sample[a] * small_sample[b])
+        small_sample = (1.0, 1.0, 1.0)
 
     floor_h2 = floor_v2 = 0.0
     for fix in used:
@@ -616,12 +654,72 @@ def average(recording: Recording, settings: Settings = Settings()) -> Result:
         total_covariance=total,
         tau=tau,  # type: ignore[arg-type]
         small_sample_factor=small_sample,  # type: ignore[arg-type]
+        noise_models=tuple(  # type: ignore[arg-type]
+            "/".join(sorted({fit.model for fit in fits[k]})) if fits[k] else "independent" for k in range(3)
+        ),
+        correlation_time_s=tuple(max((f.correlation_time_s for f in fits[k]), default=0.0) for k in range(3)),  # type: ignore[arg-type]
+        sessions=len(sessions),
+        between_session_sigma=tuple(between),  # type: ignore[arg-type]
         effective_epochs=n / (sum(tau) / 3.0),
         floor_m=(math.sqrt(floor_h2), math.sqrt(floor_v2)),
         scatter_ratio=scale if weighted else None,
         weighted_by_rms=weighted,
         median_rms_m=median_rms,
     )
+
+
+def _seconds(fixes: Sequence[Fix]) -> list[float]:
+    """Epoch times in seconds from the first, or the epoch index when the
+    file has no usable time column. Never decreasing, so that a clock
+    step backwards cannot make a negative interval."""
+    if all(fix.time is not None for fix in fixes):
+        start = fixes[0].time
+        out = [(fix.time - start).total_seconds() for fix in fixes]  # type: ignore[operator]
+    else:
+        out = [float(i) for i in range(len(fixes))]
+    for i in range(1, len(out)):
+        out[i] = max(out[i], out[i - 1] + 1e-3)
+    return out
+
+
+def _combine_sessions(means: list[float], variances: list[float]) -> tuple[float, float, float]:
+    """Several recordings of one point as a random-effects mean.
+
+    Each session's mean is good to its own variance, but two recordings
+    hours apart also differ by what neither could see from inside itself:
+    multipath that repeats with the satellites, a slowly changing
+    atmosphere. That extra between-session variance is estimated with
+    DerSimonian and Laird's moment estimator and added to every session
+    before they are weighted together. One session returns as it came.
+
+    Two sessions can show that they disagree but not by how much in
+    general, so a pair that disagrees comes back with a wide interval.
+    That is the honest answer; a third session narrows it.
+    """
+    if len(means) == 1:
+        return means[0], variances[0], 0.0
+    weights = [1.0 / v for v in variances]
+    total = sum(weights)
+    fixed = sum(w * m for w, m in zip(weights, means)) / total
+    q = sum(w * (m - fixed) ** 2 for w, m in zip(weights, means))
+    denominator = total - sum(w * w for w in weights) / total
+    tau2 = max(0.0, (q - (len(means) - 1)) / denominator) if denominator > 0 else 0.0
+    weights = [1.0 / (v + tau2) for v in variances]
+    total = sum(weights)
+    mean = sum(w * m for w, m in zip(weights, means)) / total
+    variance = 1.0 / total
+    if tau2 > 0:
+        # With a handful of sessions the between-session variance is itself
+        # a rough guess. Hartung-Knapp-Sidik-Jonkman's correction - the
+        # scatter of the sessions about the mean, with Student's t on k - 1
+        # degrees of freedom - keeps the 95% interval near 95% (simulated:
+        # 92-97% for three to six sessions, against 72-90% without). It is
+        # applied only when the sessions disagree; when they agree it would
+        # widen the answer for nothing.
+        k = len(means)
+        knapp = sum(w * (m - mean) ** 2 for w, m in zip(weights, means)) / ((k - 1) * total)
+        variance = max(variance, knapp) * (student_t_975(k - 1) / 1.959963984540054) ** 2
+    return mean, variance, math.sqrt(tau2)
 
 
 def tier_name(key: str) -> str:

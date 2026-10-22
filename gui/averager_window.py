@@ -183,7 +183,7 @@ class AveragerWindow(QMainWindow):
         for label, value in _REJECT_CHOICES:
             self._reject.addItem(label, value)
         self._reject.setCurrentIndex(1)
-        self._correlation = TickCheckBox("Correct for time correlation", settings.frame)
+        self._correlation = TickCheckBox("Model time-correlated noise", settings.frame)
         self._correlation.setChecked(True)
         self._correlation.setToolTip(
             "Neighbouring epochs share the same multipath and atmosphere. Without this the "
@@ -520,9 +520,15 @@ class AveragerWindow(QMainWindow):
         self._accuracy_grid.setColumnStretch(0, 1)
 
         note = (
-            "Statistical is the noise of the mean alone, after correcting for time correlation "
-            f"(τ = {result.tau[0]:.1f} / {result.tau[1]:.1f} / {result.tau[2]:.1f} epochs in E/N/U). "
+            "Statistical is the noise of the mean alone, under the noise model maximum likelihood "
+            f"chose for each axis ({' / '.join(_describe_model(m, t) for m, t in zip(result.noise_models, result.correlation_time_s))} "
+            "in E/N/U). "
         )
+        if result.sessions > 1:
+            note += (
+                f"{result.sessions} sessions; scatter between them beyond their own noise "
+                f"{' / '.join(format_length(b) for b in result.between_session_sigma)}. "
+            )
         widening = max(result.small_sample_factor)
         if widening > 1.05:
             note += f"Few effective epochs, so the variance was widened ×{widening:.2f} (Student's t). "
@@ -569,6 +575,14 @@ class AveragerWindow(QMainWindow):
             return
         button.setText(COPY_CONFIRM_TEXT)
         QTimer.singleShot(1200, lambda: button.setText(original))
+
+
+def _describe_model(model: str, correlation_time_s: float) -> str:
+    if model == "white":
+        return "white"
+    if model == "independent":
+        return "independent"
+    return f"Gauss-Markov, Tc {format_duration(correlation_time_s)}"
 
 
 def _clear(layout) -> None:

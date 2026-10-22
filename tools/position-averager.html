@@ -271,7 +271,7 @@ details.method code { font-family: var(--font-mono); font-size: 13px; background
         <span class="hint">אופציונלי. אם מוזן, יוצג גם גובה אורתומטרי <span class="mono">H = h − N</span>.</span>
       </div>
       <div class="field">
-        <label class="check"><input type="checkbox" id="optCorr" checked> תיקון לקורלציה בזמן</label>
+        <label class="check"><input type="checkbox" id="optCorr" checked> מודל רעש מתואם בזמן</label>
         <span class="hint">אפוקים צמודים חולקים את אותה שגיאה (multipath, אטמוספרה). בלי התיקון הדיוק נראה טוב בהרבה ממה שהוא.</span>
       </div>
       <div class="field">
@@ -289,9 +289,10 @@ details.method code { font-family: var(--font-mono); font-size: 13px; background
         <li>אפוקים בלי פתרון או ב־Dead reckoning יוצאים. במצב אוטומטי נשארים רק אפוקים מסוג הפתרון הטוב ביותר בקובץ (Fixed &gt; Float &gt; Differential/SBAS &gt; Standalone).</li>
         <li>משקל לכל אפוק: <code>w = 1/σ²</code>, כש־σ הוא <code>pos_rms_m</code> של המקלט, עם רצפה של 20% מהחציון ולפחות 1 מ״מ.</li>
         <li>ממוצע חסין (IRLS עם פונקציית Huber): מחשבים לכל אפוק את המרחק המנורמל <code>|r|/σ</code>, מכיילים אותו לפי החציון כדי לקבל את קנה המידה האמיתי של הרעש, מורידים משקל לאפוקים רחוקים ודוחים אפוקים מעבר לסף. חוזרים עד התכנסות.</li>
-        <li>אי־ודאות הממוצע מחושבת מהפיזור בפועל (sandwich), כך שהיא נכונה גם אם ה־RMS של המקלט אופטימי או פסימי מדי.</li>
-        <li>תיקון קורלציה: לכל ציר מחושבת פונקציית האוטוקורלציה של השאריות, וממנה זמן הקורלציה האינטגרלי τ. בהקלטה קצרה τ נבדק גם מול מודל AR(1), והגדול מהשניים קובע. מספר האפוקים האפקטיבי הוא <code>N/τ</code>, והשונות מוכפלת ב־τ.</li>
-        <li>תיקון למעט נתונים: כשיש מעט אפוקים אפקטיביים, גם הערכת השונות עצמה לא ודאית. השונות מורחבת לפי התפלגות Student-t עם <code>N/τ − 1</code> דרגות חופש, כך שרדיוס 95% נשאר 95%. עם הרבה נתונים הגורם הוא 1.</li>
+        <li>מודל רעש (השיטה המקובלת בגאודזיה לסדרות מיקום, כמו בתוכנות Hector ו־CATS): לכל ציר נבחר מודל רעש לבן, או לבן ועוד רעש Gauss-Markov עם זמן קורלציה Tc. הפרמטרים מוערכים ב־Maximum Likelihood (בצורת REML), והמודל נבחר לפי BIC, כך שמודל מורכב צריך להצדיק את עצמו.</li>
+        <li>תחת המודל שנבחר, הממוצע מחושב ב־GLS (האומד הלינארי הטוב ביותר) עם Kalman filter. כך רצף אפוקים שחולקים אותו multipath נספר בערך כמבט אחד, ופערים בהקלטה מטופלים לפי הזמן האמיתי ביניהם. מהמודל נובעת גם אי־הוודאות של הממוצע ומספר האפוקים האפקטיבי.</li>
+        <li>תיקון למעט נתונים: כשיש מעט אפוקים אפקטיביים, גם הערכת השונות עצמה לא ודאית. השונות מורחבת לפי התפלגות Student-t, כך שרדיוס 95% נשאר 95%. עם הרבה נתונים הגורם הוא 1.</li>
+        <li>כמה קבצים של אותה נקודה (כניסות חוזרות בזמנים שונים, כמו שהנחיות המדידה ממליצות): כל קובץ מחושב לבד, והפיזור בין הכניסות מוערך כרכיב שונות נוסף (מודל random effects של DerSimonian-Laird). זו הדרך היחידה לתפוס שגיאות איטיות יותר מהקלטה אחת.</li>
         <li>רצפה שיטתית (σ לציר, ערכים טיפוסיים): RTK Fixed 8 מ״מ אופקי / 15 מ״מ אנכי, PPP Fixed 2 / 4 ס״מ, PPP Float 8 / 15 ס״מ, RTK Float 10 / 20 ס״מ, Differential 30 / 60 ס״מ, SBAS 40 / 70 ס״מ, Standalone 0.8 / 1.5 מ׳. ב־RTK הדיוק המוחלט מוגבל גם בדיוק של קואורדינטת הבסיס.</li>
         <li>מדדי הדיוק: σ לכל ציר, אליפסת שגיאה אופקית, CEP50 ‏(≈0.589·(σE+σN)), רדיוס 95% אופקי, 2DRMS, אנכי 95% ‏(1.96·σU) ו־SEP50.</li>
         <li>הגובה בקובץ הוא גובה אליפסואידי (h). UTM מחושב על WGS-84 בטור Krüger. רשת ישראל החדשה (ITM) מחושבת אחרי טרנספורמציית Helmert משבעה פרמטרים WGS-84 → Israel 1993 (EPSG, דיוק טרנספורמציה כ־0.5 מ׳).</li>
@@ -495,6 +496,94 @@ function studentT975(dof) {
 }
 const smallSampleFactor = (nEff) => (studentT975(nEff - 1) / 1.959963984540054) ** 2;
 
+// ---- Noise model: white + first-order Gauss-Markov, by REML, GLS mean (Kalman filter) ----
+function kfFilter(y, r, steps, q, tc) {
+  let xy = 0, x1 = 0, p = q, syy = 0, s1y = 0, s11 = 0, logDet = 0;
+  for (let i = 0; i < y.length; i++) {
+    if (i && q > 0) { const phi = Math.exp(-steps[i] / tc); xy *= phi; x1 *= phi; p = phi * phi * p + q * (1 - phi * phi); }
+    const f = (q > 0 ? p : 0) + r[i], vy = y[i] - xy, v1 = 1 - x1;
+    syy += vy * vy / f; s1y += v1 * vy / f; s11 += v1 * v1 / f; logDet += Math.log(f);
+    if (q > 0) { const g = p / f; xy += g * vy; x1 += g * v1; p *= 1 - g; }
+  }
+  return { mean: s1y / s11, s11, quad: syy - s1y * s1y / s11, logDet, n: y.length };
+}
+function reml(fr) {
+  const dof = fr.n - 1, scale = Math.max(fr.quad / dof, 1e-300);
+  return { ll: -0.5 * (dof * Math.log(2 * Math.PI * scale) + fr.logDet + Math.log(fr.s11) + dof), scale };
+}
+function nelderMead(fn, start, step = 0.7, iters = 120) {
+  const d = start.length;
+  let pts = [start.slice()].concat([...Array(d)].map((_, i) => start.map((v, k) => v + (k === i ? step : 0))));
+  let sc = pts.map(fn);
+  for (let it = 0; it < iters; it++) {
+    const ord = sc.map((s, i) => i).sort((a, b) => sc[a] - sc[b]); pts = ord.map(i => pts[i]); sc = ord.map(i => sc[i]);
+    if (Math.abs(sc[d] - sc[0]) < 1e-7) break;
+    const c = [...Array(d)].map((_, k) => pts.slice(0, d).reduce((a, p) => a + p[k], 0) / d), w = pts[d];
+    const rf = c.map((v, k) => v + (v - w[k])), rs = fn(rf);
+    if (rs < sc[0]) { const ex = c.map((v, k) => v + 2 * (v - w[k])), es = fn(ex); if (es < rs) { pts[d] = ex; sc[d] = es; } else { pts[d] = rf; sc[d] = rs; } }
+    else if (rs < sc[d - 1]) { pts[d] = rf; sc[d] = rs; }
+    else { const ct = c.map((v, k) => v + 0.5 * (w[k] - v)), cs = fn(ct);
+      if (cs < sc[d]) { pts[d] = ct; sc[d] = cs; }
+      else for (let i = 1; i <= d; i++) { pts[i] = pts[i].map((v, k) => pts[0][k] + 0.5 * (v - pts[0][k])); sc[i] = fn(pts[i]); } }
+  }
+  let b = 0; for (let i = 1; i <= d; i++) if (sc[i] < sc[b]) b = i; return pts[b];
+}
+function fitAxis(values, relWhite, times) {
+  const sortedR = [...relWhite].sort((a, b) => a - b), medR = sortedR[sortedR.length >> 1];
+  let y = values.slice(), r = relWhite.map(v => v / medR), t = times.slice();
+  const size = Math.ceil(y.length / 3000);
+  if (size > 1) { // block means keep the mean and carry their own white variance
+    const by = [], br = [], bt = [];
+    for (let s = 0; s < y.length; s += size) {
+      let W = 0, Y = 0, T = 0, c = 0;
+      for (let i = s; i < Math.min(s + size, y.length); i++) { const w = 1 / r[i]; W += w; Y += w * y[i]; T += t[i]; c++; }
+      by.push(Y / W); br.push(1 / W); bt.push(T / c);
+    }
+    y = by; r = br; t = bt;
+  }
+  const origin = y.reduce((a, v) => a + v, 0) / y.length; y = y.map(v => v - origin);
+  const n = y.length, steps = t.map((v, i) => i ? Math.max(v - t[i - 1], 1e-3) : 0);
+  const ds = steps.slice(1).sort((a, b) => a - b), typ = n > 1 ? ds[ds.length >> 1] : 1;
+  const span = Math.max(t[n - 1] - t[0], typ), lo = Math.log(typ * 0.5), hi = Math.log(span * 10);
+  const unpack = (p) => [Math.exp(Math.max(Math.min(p[0], 12), -12)), Math.exp(Math.min(Math.max(p[1], lo), hi))];
+  const cost = (p) => { const [q, tc] = unpack(p); return -reml(kfFilter(y, r, steps, q, tc)).ll; };
+  const wf = kfFilter(y, r, steps, 0, 1), wr = reml(wf);
+  let best = { model: "white", fr: wf, ll: wr.ll, scale: wr.scale, q: 0, tc: 0 };
+  if (n >= 8) {
+    let start = null, startScore = Infinity;
+    for (const lq of [-3, -1, 1, 3, 5]) for (const fr of [0.002, 0.02, 0.1, 0.3, 1]) {
+      const p = [lq, Math.log(Math.max(span * fr, typ))], s = cost(p); if (s < startScore) { startScore = s; start = p; }
+    }
+    const [q, tc] = unpack(nelderMead(cost, start));
+    const fr = kfFilter(y, r, steps, q, tc), rr = reml(fr);
+    if (-2 * rr.ll + 2 * Math.log(n) < -2 * wr.ll) best = { model: "white+gauss-markov", fr, ll: rr.ll, scale: rr.scale, q, tc };
+  }
+  const varMean = best.scale / best.fr.s11, single = best.scale * (1 + best.q);
+  return { mean: best.fr.mean + origin, varMean, model: best.model, tc: best.tc, nEff: single / varMean };
+}
+// Several recordings of one point: DerSimonian-Laird random effects for the between-session scatter.
+function combineSessions(means, vars) {
+  if (means.length === 1) return [means[0], vars[0], 0];
+  let w = vars.map(v => 1 / v), W = w.reduce((a, b) => a + b, 0);
+  const fixed = w.reduce((a, wi, i) => a + wi * means[i], 0) / W;
+  const Q = w.reduce((a, wi, i) => a + wi * (means[i] - fixed) ** 2, 0);
+  const den = W - w.reduce((a, wi) => a + wi * wi, 0) / W;
+  const tau2 = den > 0 ? Math.max(0, (Q - (means.length - 1)) / den) : 0;
+  w = vars.map(v => 1 / (v + tau2)); W = w.reduce((a, b) => a + b, 0);
+  const mu = w.reduce((a, wi, i) => a + wi * means[i], 0) / W;
+  let v = 1 / W;
+  if (tau2 > 0) { // Hartung-Knapp-Sidik-Jonkman, only when the sessions disagree
+    const k = means.length, knapp = w.reduce((a, wi, i) => a + wi * (means[i] - mu) ** 2, 0) / ((k - 1) * W);
+    v = Math.max(v, knapp) * (studentT975(k - 1) / 1.959963984540054) ** 2;
+  }
+  return [mu, v, Math.sqrt(tau2)];
+}
+function secondsOf(rows) {
+  const out = rows.every(r => Number.isFinite(r.time)) ? rows.map(r => (r.time - rows[0].time) / 1000) : rows.map((_, i) => i);
+  for (let i = 1; i < out.length; i++) out[i] = Math.max(out[i], out[i - 1] + 1e-3);
+  return out;
+}
+
 function analyze(rows, opt) {
   const valid = rows.filter(r => r.sol !== 0 && r.sol !== 6);
   const tierCount = {};
@@ -549,10 +638,28 @@ function analyze(rows, opt) {
   used.forEach((r, i) => { for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) { Cm[a][b] += r.wn * r.wn * res[i][a] * res[i][b] * corr; Cs[a][b] += r.wn * res[i][a] * res[i][b] * corr; } });
   // Single-epoch scatter is for a "typical" epoch; Cs above is the weighted covariance.
 
-  const tau = [0, 1, 2].map(j => opt.corr ? integratedAutocorr(used.map((r, i) => res[i][j] * Math.sqrt(r.w))) : 1);
-  // Few effective epochs: widen by Student's t so a 95% interval stays 95%.
-  const ss = tau.map(t => smallSampleFactor(n / t));
-  for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) Cm[a][b] *= Math.sqrt(tau[a] * tau[b] * ss[a] * ss[b]);
+  // Per axis and per session: maximum-likelihood noise model and GLS mean; sessions combined as random effects.
+  let tau = [1, 1, 1], ss = [1, 1, 1], models = ["independent", "independent", "independent"], tcs = [0, 0, 0], between = [0, 0, 0];
+  const sessionIds = [...new Set(used.map(r => r.session || 0))].sort((a, b) => a - b);
+  if (opt.corr) {
+    const vars = [0, 0, 0];
+    for (let k = 0; k < 3; k++) {
+      const fits = [];
+      for (const sid of sessionIds) {
+        const m = used.filter(r => (r.session || 0) === sid); if (m.length < 2) continue;
+        fits.push(fitAxis(m.map(r => r.enu[k]), m.map(r => r.sigma * r.sigma / r.huber), secondsOf(m)));
+      }
+      const [mu, v, b] = combineSessions(fits.map(f => f.mean), fits.map(f => f.varMean * smallSampleFactor(f.nEff)));
+      mean[k] = mu; vars[k] = v; between[k] = b;
+      tau[k] = n / Math.max(fits.reduce((a, f) => a + f.nEff, 0), 1);
+      ss[k] = Math.max(...fits.map(f => smallSampleFactor(f.nEff)));
+      models[k] = [...new Set(fits.map(f => f.model))].join("/");
+      tcs[k] = Math.max(...fits.map(f => f.tc));
+    }
+    const sd = [0, 1, 2].map(a => Cm[a][a]);
+    for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++)
+      Cm[a][b] = a === b ? vars[a] : (sd[a] * sd[b] > 0 ? Cm[a][b] / Math.sqrt(sd[a] * sd[b]) : 0) * Math.sqrt(vars[a] * vars[b]);
+  }
 
   // Systematic floor, mixed by each solution type's share of the weight.
   let fH2 = 0, fU2 = 0; const share = {};
@@ -566,7 +673,7 @@ function analyze(rows, opt) {
   return {
     ecef, geo, mean, ref, basis: B, valid, sel, used, tierCount, selectedTier: opt.filter === "auto" ? opt._exact : opt.filter,
     rejected: sel.length - used.length, downweighted: used.filter(r => r.huber < 1).length,
-    Cm, Ct, Cs, tau, ss, nEff: n / ((tau[0] + tau[1] + tau[2]) / 3), floor: [Math.sqrt(fH2), Math.sqrt(fU2)],
+    Cm, Ct, Cs, tau, ss, models, tcs, between, sessions: sessionIds.length, nEff: n / ((tau[0] + tau[1] + tau[2]) / 3), floor: [Math.sqrt(fH2), Math.sqrt(fU2)],
     scale: useRms ? scale : null, useRms, medRms, iters, share,
     span: (() => { const ts = used.map(r => r.time).filter(Number.isFinite); return ts.length ? (Math.max(...ts) - Math.min(...ts)) / 1000 : NaN; })(),
   };
@@ -652,10 +759,10 @@ const opts = () => ({
 
 function loadTexts(files, isSample) {
   const notices = []; const rows = []; let blank = 0;
-  for (const f of files) {
-    try { const r = readLoggerCsv(f.text); r.rows.forEach(x => { x.time = x.t; }); rows.push(...r.rows); blank += r.blank; }
+  files.forEach((f, session) => {
+    try { const r = readLoggerCsv(f.text); r.rows.forEach(x => { x.time = x.t; x.session = session; }); rows.push(...r.rows); blank += r.blank; }
     catch (e) { notices.push({ error: true, text: `${f.name}: ${e.message}` }); }
-  }
+  });
   state.sources = files.map(f => f.name); state.rows = rows; state.isSample = isSample; state.blank = blank; state.loadNotices = notices;
   $("fileName").textContent = files.map(f => f.name).join(", ");
   $("fileInfo").textContent = `${rows.length.toLocaleString("he-IL")} אפוקים עם מיקום` + (blank ? ` · ${blank} שורות בלי מיקום` : "");
@@ -748,7 +855,9 @@ function render(R, o) {
     row("2DRMS", fmtLen(M.drms2), fmtLen(Mm.drms2), fmtLen(Ms.drms2)) +
     row("אנכי 95%", fmtLen(M.v95), fmtLen(Mm.v95), fmtLen(Ms.v95)) +
     row("SEP50", fmtLen(M.sep50), fmtLen(Mm.sep50), fmtLen(Ms.sep50)) + `</tbody>`;
-  $("accNote").innerHTML = `"סטטיסטי" הוא רעש הממוצע בלבד, אחרי תיקון קורלציה (τ = ${R.tau.map(t => t.toFixed(1)).join(" / ")} אפוקים ב־E/N/U). ` +
+  const fmtTc = (t) => t > 0 ? (t < 120 ? t.toFixed(0) + " s" : (t / 60).toFixed(1) + " min") : "—";
+  $("accNote").innerHTML = `"סטטיסטי" הוא רעש הממוצע בלבד, לפי מודל הרעש שנבחר לכל ציר (${R.models.map((m, i) => (m === "white" ? "לבן" : m === "independent" ? "בלתי תלוי" : "Gauss-Markov, Tc " + fmtTc(R.tcs[i]))).join(" / ")} ב־E/N/U). ` +
+    (R.sessions > 1 ? `${R.sessions} כניסות; פיזור בין־כניסות ${R.between.map(fmtLen).join(" / ")}. ` : "") +
     (Math.max(...R.ss) > 1.05 ? `מעט אפוקים אפקטיביים, אז השונות הורחבה פי ${Math.max(...R.ss).toFixed(2)} (התפלגות Student-t). ` : "") +
     (o.floor ? `"כולל" מוסיף רצפה שיטתית של ${fmtLen(R.floor[0])} אופקי ו־${fmtLen(R.floor[1])} אנכי לציר. ` : `רצפה שיטתית כבויה, כך ש"כולל" שווה ל"סטטיסטי". `) +
     (R.useRms ? `חציון pos_rms של המקלט: ${fmtLen(R.medRms)}.` : "");
