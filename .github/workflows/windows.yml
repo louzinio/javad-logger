@@ -1,0 +1,65 @@
+name: Windows
+
+# Builds the Windows folder - Javad Logger.exe and Position Averager.exe
+# side by side over one copy of Qt - on GitHub's Windows runner, so that a
+# build does not depend on whichever laptop happens to have the build
+# environment on it.
+#
+# The artifact downloads as a zip of the folder: unpack it anywhere and
+# run either executable. Nothing is signed, so SmartScreen asks once.
+
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Tests and executables
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # The same separate-environment build the README describes, for the
+      # same reason: only the runtime requirements go into the folder.
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: pytest
+        run: python -m pytest -q
+
+      - name: PyInstaller
+        run: python -m PyInstaller --noconfirm --clean javad-logger.spec
+
+      - name: Check both executables are there
+        shell: pwsh
+        run: |
+          foreach ($exe in "Javad Logger.exe", "Position Averager.exe") {
+            if (-not (Test-Path "dist/Javad Logger/$exe")) { Write-Error "$exe was not built"; exit 1 }
+          }
+          Get-ChildItem "dist/Javad Logger" -Filter *.exe | Format-Table Name, Length
+
+      - name: Read the version
+        shell: pwsh
+        run: |
+          $version = python -c "from version import __version__; print(__version__)"
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      # The folder itself rather than a zip of it: GitHub zips an artifact
+      # on download anyway, and a zip inside a zip is one unpack too many.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Javad-Logger-${{ env.VERSION }}-windows
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30

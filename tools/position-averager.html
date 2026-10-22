@@ -1,0 +1,919 @@
+<!doctype html>
+<html lang="he">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ממוצע מיקום JAVAD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Hebrew:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one instrument column - result first, then the formats, then the evidence (plots, tiers, settings). */
+:root {
+  --page: #f2f2f7;
+  --card: #ffffff;
+  --fill: #eeeef2;
+  --hairline: #e4e4e9;
+  --separator: #c9c9ce;
+  --label: #1c1c1e;
+  --label-2: #6c6c70;
+  --label-3: #a6a6ab;
+  --accent: #527a2b;
+  --accent-wash: #e7f3da;
+  --on-accent: #ffffff;
+  --alert: #d92c22;
+  --alert-wash: #fde7e5;
+  --warn: #a15c00;
+  --warn-wash: #fdf0dc;
+  --plot-point: #527a2b;
+  --plot-weak: #b0b9a5;
+  --font-body: "IBM Plex Sans Hebrew", "Segoe UI", "Arial Hebrew", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #141417; --card: #1c1c1e; --fill: #2c2c2e; --hairline: #2f2f31; --separator: #48484a;
+    --label: #ffffff; --label-2: #98989f; --label-3: #636366;
+    --accent: #85c446; --accent-wash: #24321a; --on-accent: #10180a;
+    --alert: #ff6b61; --alert-wash: #3a1d1b; --warn: #f0a640; --warn-wash: #36290f;
+    --plot-point: #85c446; --plot-weak: #4f5a45;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --page: #141417; --card: #1c1c1e; --fill: #2c2c2e; --hairline: #2f2f31; --separator: #48484a;
+  --label: #ffffff; --label-2: #98989f; --label-3: #636366;
+  --accent: #85c446; --accent-wash: #24321a; --on-accent: #10180a;
+  --alert: #ff6b61; --alert-wash: #3a1d1b; --warn: #f0a640; --warn-wash: #36290f;
+  --plot-point: #85c446; --plot-weak: #4f5a45;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--page); color: var(--label);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 48px;
+}
+.wrap { max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 17px; font-weight: 600; }
+h3 { font-size: 13px; font-weight: 600; color: var(--label-2); letter-spacing: 0.04em; }
+p { margin: 0; }
+.mono, .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; direction: ltr; unicode-bidi: isolate; }
+.muted { color: var(--label-2); }
+.small { font-size: 13px; }
+
+header.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px; }
+header.top .sub { color: var(--label-2); max-width: 60ch; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+button, .btn {
+  font: inherit; font-size: 14px; font-weight: 500; cursor: pointer;
+  border-radius: 10px; padding: 8px 14px; border: 1px solid var(--separator);
+  background: var(--card); color: var(--label);
+}
+button:hover, .btn:hover { border-color: var(--accent); }
+button:focus-visible, .btn:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+input[type=file] { display: none; }
+
+.drop {
+  border: 1.5px dashed var(--separator); border-radius: var(--radius); padding: 14px 16px;
+  display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; justify-content: space-between;
+  background: var(--card);
+}
+.drop.over { border-color: var(--accent); background: var(--accent-wash); }
+.drop .file { font-weight: 600; overflow-wrap: anywhere; min-width: 0; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+.pill.sample { background: var(--warn-wash); color: var(--warn); }
+.pill.ok { background: var(--accent-wash); color: var(--accent); }
+.pill.bad { background: var(--alert-wash); color: var(--alert); }
+.notice { border-radius: 10px; padding: 10px 14px; background: var(--warn-wash); color: var(--warn); font-size: 14px; }
+.notice.error { background: var(--alert-wash); color: var(--alert); }
+
+.card { background: var(--card); border-radius: var(--radius); padding: 18px; min-width: 0; }
+.card > h2 { margin-bottom: 12px; }
+.grid2 { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 18px; }
+@media (max-width: 820px) { .grid2 { grid-template-columns: minmax(0, 1fr); } }
+
+/* Hero result */
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: start; }
+@media (max-width: 700px) { .hero { grid-template-columns: minmax(0, 1fr); } }
+.hero .coords { font-family: var(--font-mono); direction: ltr; text-align: left; font-size: 22px; font-weight: 500; line-height: 1.35; overflow-wrap: anywhere; }
+.hero .coords .h { font-size: 16px; color: var(--label-2); }
+.hero .label { font-size: 12.5px; color: var(--label-2); letter-spacing: 0.04em; margin-bottom: 4px; }
+.acc-tiles { display: grid; grid-template-columns: repeat(2, minmax(120px, 1fr)); gap: 10px; }
+.tile { background: var(--fill); border-radius: 10px; padding: 10px 12px; }
+.tile .k { font-size: 12px; color: var(--label-2); }
+.tile .v { font-family: var(--font-mono); font-size: 19px; font-weight: 500; direction: ltr; text-align: right; }
+.tile.main { background: var(--accent-wash); }
+.tile.main .v { color: var(--accent); }
+.hero-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 12px; font-size: 13px; color: var(--label-2); }
+.hero-meta b { color: var(--label); font-weight: 600; }
+
+/* Format list */
+.fmt-group + .fmt-group { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--hairline); }
+.fmt-group h3 { margin-bottom: 6px; }
+.fmt-row { display: grid; grid-template-columns: 7.5em minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 4px 0; }
+.fmt-row .k { color: var(--label-2); font-size: 13.5px; }
+.fmt-row .v { font-family: var(--font-mono); font-size: 14px; direction: ltr; text-align: left; overflow-wrap: anywhere; min-width: 0; }
+.fmt-row .v .pm { color: var(--label-3); }
+.copy { padding: 3px 10px; font-size: 12.5px; border-radius: 8px; }
+.copy.done { border-color: var(--accent); color: var(--accent); }
+.links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.links a { color: var(--accent); font-weight: 500; }
+
+/* Accuracy table */
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { padding: 6px 6px; text-align: right; border-bottom: 1px solid var(--hairline); }
+th { font-weight: 600; color: var(--label-2); font-size: 12.5px; }
+td.n { font-family: var(--font-mono); direction: ltr; text-align: right; font-size: 13px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+tr.sel td { background: var(--accent-wash); }
+.table-wrap { overflow-x: auto; }
+
+canvas { display: block; width: 100%; max-width: 100%; }
+.plot-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; color: var(--label-2); margin-top: 8px; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: -1px; margin-inline-end: 5px; }
+.sw.line { border-radius: 0; height: 2px; width: 14px; vertical-align: 3px; }
+.sw.ring { background: transparent !important; border: 1.5px solid; }
+
+/* Settings */
+.settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px 18px; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field label { font-size: 13px; font-weight: 600; }
+.field .hint { font-size: 12.5px; color: var(--label-2); }
+select, input[type=number] {
+  font: inherit; font-size: 14px; padding: 7px 10px; border-radius: 9px;
+  border: 1px solid var(--separator); background: var(--card); color: var(--label); width: 100%;
+}
+.check { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; }
+.check input { margin-top: 4px; accent-color: var(--accent); }
+
+details.method summary { cursor: pointer; font-weight: 600; font-size: 16px; }
+details.method ol { padding-inline-start: 1.3em; margin: 12px 0 0; display: flex; flex-direction: column; gap: 8px; max-width: 75ch; }
+details.method li { color: var(--label); }
+details.method code { font-family: var(--font-mono); font-size: 13px; background: var(--fill); padding: 1px 5px; border-radius: 5px; direction: ltr; unicode-bidi: isolate; }
+@media (prefers-reduced-motion: no-preference) { .tile, .card { transition: background-color .2s; } }
+</style>
+</head>
+<body>
+<div class="wrap" dir="rtl" lang="he">
+  <header class="top">
+    <div>
+      <h1>ממוצע מיקום</h1>
+      <p class="sub">טוענים CSV מ־Javad Logger ומקבלים מיקום אחד: ממוצע משוקלל לפי ה־RMS שהמקלט דיווח, בלי קפיצות וחריגים, ועם הערכת דיוק שמתחשבת בכך שאפוקים סמוכים אינם בלתי תלויים.</p>
+    </div>
+    <div class="actions">
+      <label class="btn primary" for="file" tabindex="0" id="fileBtn">טען קובץ CSV</label>
+      <input type="file" id="file" accept=".csv,text/csv,text/plain" multiple>
+      <button type="button" id="sampleBtn">קובץ לדוגמה</button>
+    </div>
+  </header>
+
+  <div class="drop" id="drop">
+    <div style="min-width:0">
+      <div class="file" id="fileName">—</div>
+      <div class="small muted" id="fileInfo">אפשר לגרור לכאן קובץ אחד או כמה קבצים של אותה נקודה.</div>
+    </div>
+    <span id="sourcePill"></span>
+  </div>
+  <div id="notices"></div>
+
+  <section class="card hero" id="heroCard">
+    <div style="min-width:0">
+      <div class="label">המיקום המשוקלל · WGS-84</div>
+      <div class="coords" id="heroCoords">—</div>
+      <div class="hero-meta" id="heroMeta"></div>
+    </div>
+    <div class="acc-tiles" id="accTiles"></div>
+  </section>
+
+  <div class="grid2">
+    <section class="card">
+      <h2>המיקום בכל הפורמטים</h2>
+      <div id="formats"></div>
+    </section>
+    <section class="card">
+      <h2>דיוק משוערך</h2>
+      <div class="table-wrap"><table id="accTable"></table></div>
+      <p class="small muted" style="margin-top:10px" id="accNote"></p>
+      <div style="margin-top:12px"><button type="button" id="copyReport">העתק דוח מלא</button></div>
+    </section>
+  </div>
+
+  <div class="grid2">
+    <section class="card">
+      <h2>פיזור אופקי סביב הממוצע</h2>
+      <canvas id="scatter" height="360"></canvas>
+      <div class="plot-legend">
+        <span><i class="sw" style="background:var(--plot-point)"></i>אפוק בשימוש (גודל = משקל)</span>
+        <span><i class="sw" style="background:var(--plot-weak)"></i>משקל מופחת</span>
+        <span><i class="sw ring" style="border-color:var(--alert)"></i>נדחה כחריג</span>
+        <span><i class="sw line" style="background:var(--label-2)"></i>95% לאפוק בודד</span>
+        <span><i class="sw line" style="background:var(--accent)"></i>95% לממוצע</span>
+      </div>
+    </section>
+    <section class="card">
+      <h2>סטייה לאורך ההקלטה</h2>
+      <canvas id="series" height="360"></canvas>
+      <div class="plot-legend">
+        <span><i class="sw" style="background:var(--plot-point)"></i>בשימוש</span>
+        <span><i class="sw" style="background:var(--label-3)"></i>מחוץ לסוג הפתרון שנבחר</span>
+        <span><i class="sw ring" style="border-color:var(--alert)"></i>נדחה</span>
+        <span><i class="sw line" style="background:var(--warn)"></i>pos_rms של המקלט</span>
+      </div>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>סוגי פתרון בקובץ</h2>
+    <div class="table-wrap"><table id="tierTable"></table></div>
+  </section>
+
+  <section class="card">
+    <h2>הגדרות החישוב</h2>
+    <div class="settings">
+      <div class="field">
+        <label for="optFilter">אילו אפוקים לכלול</label>
+        <select id="optFilter">
+          <option value="auto">אוטומטי: סוג הפתרון הטוב ביותר</option>
+          <option value="all">הכול (המשקל יכריע)</option>
+          <option value="fixed">רק Fixed (RTK / PPP)</option>
+          <option value="float">Float ומעלה</option>
+          <option value="dgnss">Differential / SBAS ומעלה</option>
+        </select>
+        <span class="hint">אוטומטי לוקח את הסוג הטוב ביותר שיש ממנו לפחות 10 אפוקים.</span>
+      </div>
+      <div class="field">
+        <label for="optWeight">שקלול</label>
+        <select id="optWeight">
+          <option value="rms">לפי pos_rms (1/σ²)</option>
+          <option value="equal">משקל שווה לכל אפוק</option>
+        </select>
+        <span class="hint">σ מוגבל מלמטה ל־20% מהחציון, כדי שאפוק אחד "אופטימי" לא ישלוט בתוצאה.</span>
+      </div>
+      <div class="field">
+        <label for="optReject">סף דחיית חריגים</label>
+        <select id="optReject">
+          <option value="2.5">מחמיר (2.5)</option>
+          <option value="3" selected>רגיל (3.0)</option>
+          <option value="4">מקל (4.0)</option>
+          <option value="0">בלי דחייה</option>
+        </select>
+        <span class="hint">ביחידות של הפיזור האמיתי (לא של ה־RMS שהמקלט הצהיר).</span>
+      </div>
+      <div class="field">
+        <label for="optGeoid">גובה הגאואיד N (מטר)</label>
+        <input type="number" id="optGeoid" step="0.001" placeholder="למשל 19.8">
+        <span class="hint">אופציונלי. אם מוזן, יוצג גם גובה אורתומטרי <span class="mono">H = h − N</span>.</span>
+      </div>
+      <div class="field">
+        <label class="check"><input type="checkbox" id="optCorr" checked> תיקון לקורלציה בזמן</label>
+        <span class="hint">אפוקים צמודים חולקים את אותה שגיאה (multipath, אטמוספרה). בלי התיקון הדיוק נראה טוב בהרבה ממה שהוא.</span>
+      </div>
+      <div class="field">
+        <label class="check"><input type="checkbox" id="optFloor" checked> להוסיף רצפת שגיאה שיטתית</label>
+        <span class="hint">ממוצע לא מוריד הטיה. מוסיף ערך טיפוסי לסוג הפתרון (טבלה בהסבר למטה).</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <details class="method">
+      <summary>איך זה מחושב</summary>
+      <ol>
+        <li>כל אפוק מומר ל־ECEF על אליפסואיד WGS-84, ומשם למערכת מקומית ENU (מזרח, צפון, למעלה) סביב החציון. הממוצע נעשה בקואורדינטות קרטזיות, לא על רוחב ואורך ישירות.</li>
+        <li>אפוקים בלי פתרון או ב־Dead reckoning יוצאים. במצב אוטומטי נשארים רק אפוקים מסוג הפתרון הטוב ביותר בקובץ (Fixed &gt; Float &gt; Differential/SBAS &gt; Standalone).</li>
+        <li>משקל לכל אפוק: <code>w = 1/σ²</code>, כש־σ הוא <code>pos_rms_m</code> של המקלט, עם רצפה של 20% מהחציון ולפחות 1 מ״מ.</li>
+        <li>ממוצע חסין (IRLS עם פונקציית Huber): מחשבים לכל אפוק את המרחק המנורמל <code>|r|/σ</code>, מכיילים אותו לפי החציון כדי לקבל את קנה המידה האמיתי של הרעש, מורידים משקל לאפוקים רחוקים ודוחים אפוקים מעבר לסף. חוזרים עד התכנסות.</li>
+        <li>אי־ודאות הממוצע מחושבת מהפיזור בפועל (sandwich), כך שהיא נכונה גם אם ה־RMS של המקלט אופטימי או פסימי מדי.</li>
+        <li>תיקון קורלציה: לכל ציר מחושבת פונקציית האוטוקורלציה של השאריות, וממנה זמן הקורלציה האינטגרלי τ. מספר האפוקים האפקטיבי הוא <code>N/τ</code>, והשונות מוכפלת ב־τ.</li>
+        <li>רצפה שיטתית (σ לציר, ערכים טיפוסיים): RTK Fixed 8 מ״מ אופקי / 15 מ״מ אנכי, PPP Fixed 2 / 4 ס״מ, PPP Float 8 / 15 ס״מ, RTK Float 10 / 20 ס״מ, Differential 30 / 60 ס״מ, SBAS 40 / 70 ס״מ, Standalone 0.8 / 1.5 מ׳. ב־RTK הדיוק המוחלט מוגבל גם בדיוק של קואורדינטת הבסיס.</li>
+        <li>מדדי הדיוק: σ לכל ציר, אליפסת שגיאה אופקית, CEP50 ‏(≈0.589·(σE+σN)), רדיוס 95% אופקי, 2DRMS, אנכי 95% ‏(1.96·σU) ו־SEP50.</li>
+        <li>הגובה בקובץ הוא גובה אליפסואידי (h). UTM מחושב על WGS-84 בטור Krüger. רשת ישראל החדשה (ITM) מחושבת אחרי טרנספורמציית Helmert משבעה פרמטרים WGS-84 → Israel 1993 (EPSG, דיוק טרנספורמציה כ־0.5 מ׳).</li>
+      </ol>
+    </details>
+  </section>
+</div>
+
+<script>
+// CORE-START
+const WGS84 = { a: 6378137.0, f: 1 / 298.257223563 };
+const GRS80 = { a: 6378137.0, f: 1 / 298.257222101 };
+for (const E of [WGS84, GRS80]) { E.e2 = E.f * (2 - E.f); E.b = E.a * (1 - E.f); }
+const D2R = Math.PI / 180, R2D = 180 / Math.PI, AS2R = Math.PI / (180 * 3600);
+
+function geoToEcef(latDeg, lonDeg, h, E = WGS84) {
+  const p = latDeg * D2R, l = lonDeg * D2R, s = Math.sin(p), c = Math.cos(p);
+  const N = E.a / Math.sqrt(1 - E.e2 * s * s);
+  return [(N + h) * c * Math.cos(l), (N + h) * c * Math.sin(l), (N * (1 - E.e2) + h) * s];
+}
+function ecefToGeo(x, y, z, E = WGS84) {
+  const lon = Math.atan2(y, x), p = Math.hypot(x, y);
+  let lat = Math.atan2(z, p * (1 - E.e2)), h = 0;
+  for (let i = 0; i < 10; i++) {
+    const s = Math.sin(lat), N = E.a / Math.sqrt(1 - E.e2 * s * s);
+    h = p / Math.cos(lat) - N;
+    const next = Math.atan2(z, p * (1 - E.e2 * N / (N + h)));
+    if (Math.abs(next - lat) < 1e-14) { lat = next; break; }
+    lat = next;
+  }
+  const s = Math.sin(lat), N = E.a / Math.sqrt(1 - E.e2 * s * s);
+  h = Math.abs(lat) < 1.4 ? p / Math.cos(lat) - N : z / s - N * (1 - E.e2);
+  return { lat: lat * R2D, lon: lon * R2D, h };
+}
+// Rows of the matrix taking ECEF deltas to East, North, Up at lat/lon.
+function enuBasis(latDeg, lonDeg) {
+  const p = latDeg * D2R, l = lonDeg * D2R, sp = Math.sin(p), cp = Math.cos(p), sl = Math.sin(l), cl = Math.cos(l);
+  return [[-sl, cl, 0], [-sp * cl, -sp * sl, cp], [cp * cl, cp * sl, sp]];
+}
+
+// Transverse Mercator, Krüger series to n^4 (sub-millimetre inside a UTM zone).
+function tmForward(latDeg, lonDeg, P) {
+  const E = P.ell, n = E.f / (2 - E.f), n2 = n * n, n3 = n2 * n, n4 = n3 * n;
+  const A = E.a / (1 + n) * (1 + n2 / 4 + n4 / 64);
+  const al = [n / 2 - 2 * n2 / 3 + 5 * n3 / 16 + 41 * n4 / 180, 13 * n2 / 48 - 3 * n3 / 5 + 557 * n4 / 1440, 61 * n3 / 240 - 103 * n4 / 140, 49561 * n4 / 161280];
+  const e = Math.sqrt(E.e2);
+  const raw = (la, lo) => {
+    const phi = la * D2R, dl = (lo - P.lon0) * D2R, s = Math.sin(phi);
+    const t = Math.sinh(Math.atanh(s) - e * Math.atanh(e * s));
+    const xi = Math.atan2(t, Math.cos(dl)), eta = Math.atanh(Math.sin(dl) / Math.sqrt(1 + t * t));
+    let x = eta, y = xi;
+    for (let j = 1; j <= 4; j++) { x += al[j - 1] * Math.cos(2 * j * xi) * Math.sinh(2 * j * eta); y += al[j - 1] * Math.sin(2 * j * xi) * Math.cosh(2 * j * eta); }
+    return [P.k0 * A * x, P.k0 * A * y];
+  };
+  const [x, y] = raw(latDeg, lonDeg);
+  const y0 = P.lat0 ? raw(P.lat0, P.lon0)[1] : 0;
+  return { E: P.x0 + x, N: P.y0 + y - y0 };
+}
+function utm(latDeg, lonDeg) {
+  let zone = Math.floor((lonDeg + 180) / 6) + 1;
+  if (latDeg >= 56 && latDeg < 64 && lonDeg >= 3 && lonDeg < 12) zone = 32;
+  if (latDeg >= 72 && latDeg < 84) {
+    if (lonDeg >= 0 && lonDeg < 9) zone = 31; else if (lonDeg >= 9 && lonDeg < 21) zone = 33;
+    else if (lonDeg >= 21 && lonDeg < 33) zone = 35; else if (lonDeg >= 33 && lonDeg < 42) zone = 37;
+  }
+  const south = latDeg < 0;
+  const r = tmForward(latDeg, lonDeg, { ell: WGS84, lon0: zone * 6 - 183, lat0: 0, k0: 0.9996, x0: 500000, y0: south ? 10000000 : 0 });
+  const bands = "CDEFGHJKLMNPQRSTUVWX";
+  const band = bands[Math.max(0, Math.min(19, Math.floor((latDeg + 80) / 8)))];
+  return { zone, south, band, E: r.E, N: r.N };
+}
+function mgrs(u, digits = 5) {
+  const set = (u.zone - 1) % 3;
+  const colLetters = ["ABCDEFGH", "JKLMNPQR", "STUVWXYZ"][set];
+  const col = colLetters[Math.floor(u.E / 100000) - 1];
+  const rowLetters = "ABCDEFGHJKLMNPQRSTUV";
+  const row = rowLetters[(Math.floor(u.N / 100000) + (u.zone % 2 === 0 ? 5 : 0)) % 20];
+  const pad = (v) => String(Math.floor((v % 100000) / Math.pow(10, 5 - digits))).padStart(digits, "0");
+  return `${u.zone}${u.band} ${col}${row} ${pad(u.E)} ${pad(u.N)}`;
+}
+// WGS-84 -> Israel 1993 (GRS80): inverse of EPSG "Israel 1993 to WGS 84 (2)", coordinate-frame Helmert.
+const ISR_HELMERT = { tx: 23.772, ty: 17.49, tz: 17.859, rx: 0.3132, ry: 1.85274, rz: -1.67299, s: -5.4262 };
+function wgsToIsrael93(lat, lon, h) {
+  const [X, Y, Z] = geoToEcef(lat, lon, h, WGS84);
+  const H = ISR_HELMERT, rx = H.rx * AS2R, ry = H.ry * AS2R, rz = H.rz * AS2R, m = 1 + H.s * 1e-6;
+  // Forward: Xw = T + m * R * Xl with R = [[1, rz, -ry], [-rz, 1, rx], [ry, -rx, 1]]. Solve for Xl.
+  const R = [[1, rz, -ry], [-rz, 1, rx], [ry, -rx, 1]].map(r => r.map(v => v * m));
+  const b = [X - H.tx, Y - H.ty, Z - H.tz];
+  const xl = solve3(R, b);
+  return ecefToGeo(xl[0], xl[1], xl[2], GRS80);
+}
+function solve3(M, b) {
+  const det = (m) => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+  const d = det(M);
+  return [0, 1, 2].map(k => det(M.map((r, i) => r.map((v, j) => (j === k ? b[i] : v)))) / d);
+}
+function itm(lat, lon, h) {
+  const g = wgsToIsrael93(lat, lon, h);
+  return tmForward(g.lat, g.lon, { ell: GRS80, lat0: 31.7343936111111, lon0: 35.2045169444444, k0: 1.0000067, x0: 219529.584, y0: 626907.39 });
+}
+
+// ---- CSV ---------------------------------------------------------------
+function parseCsv(text) {
+  const rows = []; let row = [], field = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else q = false; }
+      else field += c;
+    } else if (c === '"') q = true;
+    else if (c === ",") { row.push(field); field = ""; }
+    else if (c === "\n" || c === "\r") {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      row.push(field); field = ""; rows.push(row); row = [];
+    } else field += c;
+  }
+  if (field !== "" || row.length) { row.push(field); rows.push(row); }
+  return rows.filter(r => r.some(v => v.trim() !== ""));
+}
+const ALIASES = {
+  lat: ["lat_deg", "lat", "latitude"], lon: ["lon_deg", "lon", "lng", "longitude"], h: ["alt_m", "height_m", "alt", "height", "h"],
+  latr: ["lat_rad"], lonr: ["lon_rad"],
+  x: ["ecef_x_m", "x"], y: ["ecef_y_m", "y"], z: ["ecef_z_m", "z"],
+  rms: ["pos_rms_m", "rms", "sigma"], sol: ["sol_type"], solLabel: ["sol_type_label"],
+  time: ["host_time_utc", "rx_datetime_utc", "time", "timestamp"], sv: ["sv_total"],
+};
+const LABEL_TO_SOL = { "no solution": 0, "standalone": 1, "differential": 2, "rtk float": 3, "rtk fixed": 4, "sbas": 5, "dead reckoning": 6, "ppp float": 7, "ppp fixed": 8 };
+function readLoggerCsv(text) {
+  const table = parseCsv(text.replace(/^﻿/, ""));
+  if (table.length < 2) throw new Error("בקובץ אין שורות נתונים.");
+  const head = table[0].map(h => h.trim().toLowerCase());
+  const col = {};
+  for (const [k, names] of Object.entries(ALIASES)) { const i = head.findIndex(h => names.includes(h)); if (i >= 0) col[k] = i; }
+  const hasGeo = col.lat != null && col.lon != null && col.h != null;
+  const hasRad = col.latr != null && col.lonr != null && col.h != null;
+  const hasEcef = col.x != null && col.y != null && col.z != null;
+  if (!hasGeo && !hasRad && !hasEcef) throw new Error("לא נמצאו עמודות מיקום. צריך lat_deg, lon_deg ו־alt_m (או ecef_x_m, ecef_y_m, ecef_z_m).");
+  const num = (r, k) => { if (col[k] == null) return NaN; const v = (r[col[k]] ?? "").trim(); return v === "" ? NaN : Number(v); };
+  const out = []; let blank = 0;
+  for (let i = 1; i < table.length; i++) {
+    const r = table[i];
+    let ecef = null;
+    if (hasGeo && [num(r, "lat"), num(r, "lon"), num(r, "h")].every(Number.isFinite)) ecef = geoToEcef(num(r, "lat"), num(r, "lon"), num(r, "h"));
+    else if (hasRad && [num(r, "latr"), num(r, "lonr"), num(r, "h")].every(Number.isFinite)) ecef = geoToEcef(num(r, "latr") * R2D, num(r, "lonr") * R2D, num(r, "h"));
+    else if (hasEcef && [num(r, "x"), num(r, "y"), num(r, "z")].every(Number.isFinite)) ecef = [num(r, "x"), num(r, "y"), num(r, "z")];
+    if (!ecef || Math.hypot(...ecef) < 6.0e6) { blank++; continue; }
+    let sol = num(r, "sol");
+    if (!Number.isFinite(sol) && col.solLabel != null) { const l = (r[col.solLabel] || "").trim().toLowerCase(); if (l in LABEL_TO_SOL) sol = LABEL_TO_SOL[l]; }
+    const tRaw = col.time != null ? (r[col.time] || "").trim() : "";
+    const t = tRaw ? Date.parse(tRaw) : NaN;
+    out.push({ ecef, rms: num(r, "rms"), sol: Number.isFinite(sol) ? sol : null, t: Number.isFinite(t) ? t : NaN, sv: num(r, "sv") });
+  }
+  return { rows: out, blank, columns: head };
+}
+
+// ---- Estimator -----------------------------------------------------------
+const TIERS = {
+  fixed:   { rank: 4, name: "Fixed (RTK / PPP)", codes: [4, 8] },
+  float:   { rank: 3, name: "Float (RTK / PPP)", codes: [3, 7] },
+  dgnss:   { rank: 2, name: "Differential / SBAS", codes: [2, 5] },
+  single:  { rank: 1, name: "Standalone", codes: [1] },
+  unknown: { rank: 0, name: "לא ידוע", codes: [] },
+};
+const SOL_NAMES = { 0: "No solution", 1: "Standalone", 2: "Differential", 3: "RTK Float", 4: "RTK Fixed", 5: "SBAS", 6: "Dead reckoning", 7: "PPP Float", 8: "PPP Fixed" };
+// Typical systematic 1-sigma per axis [horizontal, vertical], metres. Averaging cannot remove these.
+const FLOOR = { 4: [0.008, 0.015], 8: [0.02, 0.04], 3: [0.10, 0.20], 7: [0.08, 0.15], 2: [0.30, 0.60], 5: [0.40, 0.70], 1: [0.80, 1.50], null: [0.80, 1.50] };
+function tierOf(sol) { for (const [k, t] of Object.entries(TIERS)) if (t.codes.includes(sol)) return k; return "unknown"; }
+const median = (a) => { if (!a.length) return NaN; const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+
+function integratedAutocorr(series) {
+  const n = series.length; if (n < 8) return 1;
+  const mean = series.reduce((a, b) => a + b, 0) / n;
+  const d = series.map(v => v - mean);
+  const c0 = d.reduce((a, v) => a + v * v, 0) / n; if (!(c0 > 0)) return 1;
+  let tau = 1, previous = Infinity; const maxLag = Math.floor(n / 3);
+  // Geyer's initial monotone sequence, cut off by Sokal's window at 5 tau.
+  for (let k = 1; k + 1 <= maxLag; k += 2) {
+    if (k >= 5 * tau) break;
+    let ck = 0, ck1 = 0;
+    for (let i = 0; i + k < n; i++) ck += d[i] * d[i + k];
+    for (let i = 0; i + k + 1 < n; i++) ck1 += d[i] * d[i + k + 1];
+    const pair = Math.min((ck + ck1) / n / c0, previous);
+    if (pair <= 0) break;
+    tau += 2 * pair; previous = pair;
+  }
+  return Math.min(Math.max(tau, 1), n);
+}
+
+function analyze(rows, opt) {
+  const valid = rows.filter(r => r.sol !== 0 && r.sol !== 6);
+  const tierCount = {};
+  for (const r of valid) { r.tier = tierOf(r.sol); tierCount[r.tier] = (tierCount[r.tier] || 0) + 1; }
+  if (!valid.length) throw new Error("אין בקובץ אפוקים עם פתרון מיקום.");
+
+  let minRank;
+  if (opt.filter === "all") minRank = -1;
+  else if (opt.filter === "auto") {
+    const need = Math.min(10, valid.length);
+    const ranked = Object.keys(tierCount).sort((a, b) => TIERS[b].rank - TIERS[a].rank);
+    const best = ranked.find(k => tierCount[k] >= need) || ranked[ranked.length - 1];
+    minRank = TIERS[best].rank; opt._exact = best;
+  } else minRank = TIERS[opt.filter].rank;
+  const inTier = (r) => opt.filter === "auto" ? r.tier === opt._exact : TIERS[r.tier].rank >= minRank;
+  let sel = valid.filter(inTier);
+  if (sel.length < 2) throw new Error("נשארו פחות משני אפוקים אחרי סינון סוג הפתרון. נסו 'הכול'.");
+
+  const ref = [0, 1, 2].map(k => median(sel.map(r => r.ecef[k])));
+  const g0 = ecefToGeo(...ref), B = enuBasis(g0.lat, g0.lon);
+  const toEnu = (p) => { const d = [p[0] - ref[0], p[1] - ref[1], p[2] - ref[2]]; return B.map(row => row[0] * d[0] + row[1] * d[1] + row[2] * d[2]); };
+  for (const r of valid) r.enu = toEnu(r.ecef);
+
+  const haveRms = sel.filter(r => r.rms > 0).length;
+  const useRms = opt.weight === "rms" && haveRms >= sel.length * 0.5;
+  const medRms = median(sel.filter(r => r.rms > 0).map(r => r.rms));
+  const sFloor = Math.max(0.001, 0.2 * medRms);
+  for (const r of sel) r.sigma = useRms ? Math.max(r.rms > 0 ? r.rms : medRms, sFloor) : 1;
+
+  let mean = [0, 0, 0], k = opt.reject, c = 1.6, scale = 1, iters = 0;
+  for (const r of sel) { r.huber = 1; r.rejected = false; }
+  for (; iters < 50; iters++) {
+    let sw = 0; const m = [0, 0, 0];
+    for (const r of sel) { if (r.rejected) continue; const w = r.huber / (r.sigma * r.sigma); sw += w; for (let j = 0; j < 3; j++) m[j] += w * r.enu[j]; }
+    for (let j = 0; j < 3; j++) m[j] /= sw;
+    const shift = Math.hypot(m[0] - mean[0], m[1] - mean[1], m[2] - mean[2]); mean = m;
+    for (const r of sel) r.t = Math.hypot(r.enu[0] - mean[0], r.enu[1] - mean[1], r.enu[2] - mean[2]) / r.sigma;
+    // r/sigma for isotropic 3D noise with sigma_axis = sigma/sqrt(3) has median 0.888.
+    scale = Math.max(median(sel.map(r => r.t)) / 0.888, 1e-9);
+    for (const r of sel) { r.z = r.t / scale; r.rejected = k > 0 && r.z > k; r.huber = r.z <= c ? 1 : c / r.z; }
+    if (iters > 0 && shift < 1e-6) break;
+  }
+  const used = sel.filter(r => !r.rejected);
+  if (used.length < 2) throw new Error("כמעט כל האפוקים נדחו. נסו סף מקל יותר.");
+  for (const r of sel) { r.isUsed = !r.rejected; r.w = r.rejected ? 0 : r.huber / (r.sigma * r.sigma); }
+  const SW = used.reduce((a, r) => a + r.w, 0);
+  for (const r of sel) r.wn = r.w / SW;
+  const res = used.map(r => [0, 1, 2].map(j => r.enu[j] - mean[j]));
+
+  const n = used.length, corr = n / (n - 1);
+  const Cm = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], Cs = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  used.forEach((r, i) => { for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) { Cm[a][b] += r.wn * r.wn * res[i][a] * res[i][b] * corr; Cs[a][b] += r.wn * res[i][a] * res[i][b] * corr; } });
+  // Single-epoch scatter is for a "typical" epoch; Cs above is the weighted covariance.
+
+  const tau = [0, 1, 2].map(j => opt.corr ? integratedAutocorr(used.map((r, i) => res[i][j] * Math.sqrt(r.w))) : 1);
+  for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) Cm[a][b] *= Math.sqrt(tau[a] * tau[b]);
+
+  // Systematic floor, mixed by each solution type's share of the weight.
+  let fH2 = 0, fU2 = 0; const share = {};
+  for (const r of used) { const f = FLOOR[r.sol] || FLOOR.null; fH2 += r.wn * f[0] * f[0]; fU2 += r.wn * f[1] * f[1]; share[r.sol] = (share[r.sol] || 0) + r.wn; }
+  const Ct = Cm.map(row => [...row]);
+  if (opt.floor) { Ct[0][0] += fH2; Ct[1][1] += fH2; Ct[2][2] += fU2; }
+
+  const ecef = [0, 1, 2].map(k2 => ref[k2] + B[0][k2] * mean[0] + B[1][k2] * mean[1] + B[2][k2] * mean[2]);
+  const geo = ecefToGeo(...ecef);
+
+  return {
+    ecef, geo, mean, ref, basis: B, valid, sel, used, tierCount, selectedTier: opt.filter === "auto" ? opt._exact : opt.filter,
+    rejected: sel.length - used.length, downweighted: used.filter(r => r.huber < 1).length,
+    Cm, Ct, Cs, tau, nEff: n / ((tau[0] + tau[1] + tau[2]) / 3), floor: [Math.sqrt(fH2), Math.sqrt(fU2)],
+    scale: useRms ? scale : null, useRms, medRms, iters, share,
+    span: (() => { const ts = used.map(r => r.time).filter(Number.isFinite); return ts.length ? (Math.max(...ts) - Math.min(...ts)) / 1000 : NaN; })(),
+  };
+}
+
+function metrics(C) {
+  const sE = Math.sqrt(C[0][0]), sN = Math.sqrt(C[1][1]), sU = Math.sqrt(C[2][2]);
+  const a = C[0][0], b = C[0][1], c = C[1][1];
+  const disc = Math.sqrt(((a - c) / 2) ** 2 + b * b);
+  const l1 = (a + c) / 2 + disc, l2 = Math.max((a + c) / 2 - disc, 0);
+  const theta = 0.5 * Math.atan2(2 * b, a - c); // from East, counter-clockwise
+  const smaj = Math.sqrt(l1), smin = Math.sqrt(l2);
+  return {
+    sE, sN, sU, smaj, smin, azimuth: ((90 - theta * R2D) % 180 + 180) % 180, theta,
+    cep50: 0.5887 * (smaj + smin), r95: 2.4477 * Math.sqrt((l1 + l2) / 2), drms2: 2 * Math.sqrt(l1 + l2),
+    v95: 1.96 * sU, sep50: 0.5127 * (sE + sN + sU),
+  };
+}
+function enuCovToEcef(C, B) {
+  // Cecef = B^T C B
+  const out = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { let s = 0; for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) s += B[a][i] * C[a][b] * B[b][j]; out[i][j] = s; }
+  return out;
+}
+
+// ---- Sample file -------------------------------------------------------
+function makeSample() {
+  let seed = 20261022;
+  const rnd = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  const gauss = () => Math.sqrt(-2 * Math.log(rnd() + 1e-12)) * Math.cos(2 * Math.PI * rnd());
+  const truth = { lat: 32.0852998, lon: 34.7818064, h: 37.214 };
+  const t0 = Date.parse("2026-10-21T09:14:00Z");
+  const B = enuBasis(truth.lat, truth.lon), T = geoToEcef(truth.lat, truth.lon, truth.h);
+  const head = "host_time_utc,lat_deg,lon_deg,alt_m,pos_rms_m,sol_type,sol_type_label,sv_total,ecef_x_m,ecef_y_m,ecef_z_m";
+  const lines = [head]; let ar = [0, 0, 0];
+  for (let i = 0; i < 900; i++) {
+    const time = new Date(t0 + i * 1000).toISOString().replace("Z", "+00:00");
+    let sol, sd, rho, bias, rms;
+    if (i < 80) { sol = 1; sd = [0.9, 0.9, 1.6]; rho = 0.97; bias = [0.6, -0.4, 1.1]; rms = 1.6 + 0.3 * rnd(); }
+    else if (i < 170) { sol = 3; sd = [0.12, 0.12, 0.22]; rho = 0.95; bias = [0.05, 0.03, -0.08]; rms = 0.28 + 0.08 * rnd(); }
+    else { sol = 4; sd = [0.006, 0.006, 0.011]; rho = 0.9; bias = [0, 0, 0]; rms = 0.012 + 0.006 * rnd(); }
+    if (i === 80 || i === 170) ar = [0, 0, 0];
+    ar = ar.map((v, j) => rho * v + Math.sqrt(1 - rho * rho) * sd[j] * gauss());
+    let enu = ar.map((v, j) => v + bias[j]);
+    if (sol === 4 && (i % 97 === 13 || (i > 600 && i < 606))) { enu = enu.map((v, j) => v + (j === 2 ? 0.35 : 0.18) * (rnd() > 0.5 ? 1 : -1)); }
+    if (i === 333 || i === 334) { lines.push(`${time},,,,,0,No solution,4,,,`); continue; }
+    const x = [0, 1, 2].map(k => T[k] + B[0][k] * enu[0] + B[1][k] * enu[1] + B[2][k] * enu[2]);
+    const g = ecefToGeo(...x);
+    lines.push([time, g.lat.toFixed(9), g.lon.toFixed(9), g.h.toFixed(4), rms.toFixed(4), sol, SOL_NAMES[sol], sol === 1 ? 9 : 17 + (i % 4), x[0].toFixed(4), x[1].toFixed(4), x[2].toFixed(4)].join(","));
+  }
+  return lines.join("\r\n") + "\r\n";
+}
+// CORE-END
+
+// ---- Formatting --------------------------------------------------------
+function fmtLen(m) {
+  if (!Number.isFinite(m)) return "—";
+  const a = Math.abs(m);
+  if (a < 0.01) return (m * 1000).toFixed(1) + " mm";
+  if (a < 1) return (m * 100).toFixed(1) + " cm";
+  if (a < 1000) return m.toFixed(2) + " m";
+  return (m / 1000).toFixed(2) + " km";
+}
+function dms(v, pos, neg, secDec = 5) {
+  const h = v < 0 ? neg : pos; let a = Math.abs(v);
+  let d = Math.floor(a), mf = (a - d) * 60, m = Math.floor(mf), s = (mf - m) * 60;
+  if (Number(s.toFixed(secDec)) >= 60) { s = 0; m += 1; } if (m >= 60) { m = 0; d += 1; }
+  return `${d}° ${String(m).padStart(2, "0")}′ ${s.toFixed(secDec).padStart(secDec + 3, "0")}″ ${h}`;
+}
+function ddm(v, pos, neg) {
+  const h = v < 0 ? neg : pos, a = Math.abs(v), d = Math.floor(a), m = (a - d) * 60;
+  return `${d}° ${m.toFixed(7).padStart(10, "0")}′ ${h}`;
+}
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// ---- App ----------------------------------------------------------------
+const $ = (id) => document.getElementById(id);
+const state = { sources: [], rows: [], isSample: false, result: null, report: "" };
+const opts = () => ({
+  filter: $("optFilter").value, weight: $("optWeight").value, reject: Number($("optReject").value),
+  corr: $("optCorr").checked, floor: $("optFloor").checked, geoidN: $("optGeoid").value === "" ? NaN : Number($("optGeoid").value),
+});
+
+function loadTexts(files, isSample) {
+  const notices = []; const rows = []; let blank = 0;
+  for (const f of files) {
+    try { const r = readLoggerCsv(f.text); r.rows.forEach(x => { x.time = x.t; }); rows.push(...r.rows); blank += r.blank; }
+    catch (e) { notices.push({ error: true, text: `${f.name}: ${e.message}` }); }
+  }
+  state.sources = files.map(f => f.name); state.rows = rows; state.isSample = isSample; state.blank = blank; state.loadNotices = notices;
+  $("fileName").textContent = files.map(f => f.name).join(", ");
+  $("fileInfo").textContent = `${rows.length.toLocaleString("he-IL")} אפוקים עם מיקום` + (blank ? ` · ${blank} שורות בלי מיקום` : "");
+  $("sourcePill").innerHTML = isSample ? '<span class="pill sample">נתוני דוגמה, לא מדידה אמיתית</span>' : (rows.length ? '<span class="pill ok">הקובץ שלך</span>' : '<span class="pill bad">לא נקרא</span>');
+  run();
+}
+
+function run() {
+  const o = opts(); const notices = [...(state.loadNotices || [])];
+  let R = null;
+  if (state.rows.length) {
+    try { R = analyze(state.rows.map(r => ({ ...r })), o); } catch (e) { notices.push({ error: true, text: e.message }); }
+  }
+  state.result = R;
+  if (R) {
+    if (!R.useRms && o.weight === "rms") notices.push({ text: "בקובץ אין pos_rms_m לרוב האפוקים, אז כל אפוק קיבל משקל שווה. הדיוק עדיין מחושב מהפיזור בפועל." });
+    if (R.used.length < 30) notices.push({ text: `רק ${R.used.length} אפוקים בשימוש. הערכת הקורלציה בזמן פחות אמינה עם מעט נתונים.` });
+    if (R.scale && R.scale > 2.5) notices.push({ text: `הפיזור בפועל גדול פי ${R.scale.toFixed(1)} ממה שה־RMS של המקלט מצהיר. ייתכן multipath או אנטנה שזזה.` });
+  }
+  $("notices").innerHTML = notices.map(n => `<div class="notice${n.error ? " error" : ""}" style="margin-bottom:8px">${esc(n.text)}</div>`).join("");
+  render(R, o);
+}
+
+function render(R, o) {
+  if (!R) {
+    $("heroCoords").textContent = "—"; $("heroMeta").innerHTML = ""; $("accTiles").innerHTML = ""; $("formats").innerHTML = '<p class="muted">טענו קובץ כדי לראות את המיקום.</p>';
+    $("accTable").innerHTML = ""; $("tierTable").innerHTML = ""; $("accNote").textContent = ""; clearCanvas("scatter"); clearCanvas("series"); return;
+  }
+  const g = R.geo, M = metrics(R.Ct), Mm = metrics(R.Cm), Ms = metrics(R.Cs);
+  const Hn = Number.isFinite(o.geoidN) ? g.h - o.geoidN : NaN;
+
+  $("heroCoords").innerHTML = `${g.lat.toFixed(9)}°, ${g.lon.toFixed(9)}°<br><span class="h">h = ${g.h.toFixed(4)} m${Number.isFinite(Hn) ? ` · H = ${Hn.toFixed(4)} m` : ""}</span>`;
+  const tierName = R.selectedTier === "all" ? "כל סוגי הפתרון" : (TIERS[R.selectedTier] ? TIERS[R.selectedTier].name + (o.filter === "auto" ? "" : " ומעלה") : R.selectedTier);
+  $("heroMeta").innerHTML = [
+    `<span><b class="num">${R.used.length.toLocaleString("he-IL")}</b> אפוקים בשימוש</span>`,
+    `<span><b class="num">${R.rejected}</b> נדחו</span>`,
+    `<span><b class="num">${R.downweighted}</b> במשקל מופחת</span>`,
+    `<span>N אפקטיבי <b class="num">${R.nEff.toFixed(0)}</b></span>`,
+    `<span>${esc(tierName)}</span>`,
+    Number.isFinite(R.span) ? `<span>משך <b class="num">${fmtDuration(R.span)}</b></span>` : "",
+  ].join("");
+  $("accTiles").innerHTML = [
+    tile("אופקי 95%", fmtLen(M.r95), true), tile("אנכי 95%", fmtLen(M.v95), true),
+    tile("CEP50", fmtLen(M.cep50)), tile("SEP50", fmtLen(M.sep50)),
+  ].join("");
+
+  // Formats
+  const u = utm(g.lat, g.lon); let it = null; try { it = itm(g.lat, g.lon, g.h); } catch (e) {}
+  const inIsrael = g.lat > 29 && g.lat < 33.6 && g.lon > 34 && g.lon < 36;
+  const Ce = enuCovToEcef(R.Ct, R.basis);
+  const sLat = Math.sqrt(R.Ct[1][1]), sLon = Math.sqrt(R.Ct[0][0]);
+  const pm = (s) => `<span class="pm"> ± ${fmtLen(s)}</span>`;
+  const groups = [
+    ["LLA · מעלות עשרוניות", [
+      ["רוחב", `${g.lat.toFixed(9)}°`, pm(sLat)], ["אורך", `${g.lon.toFixed(9)}°`, pm(sLon)], ["גובה h", `${g.h.toFixed(4)} m`, pm(Math.sqrt(R.Ct[2][2]))],
+      ["זוג", `${g.lat.toFixed(9)}, ${g.lon.toFixed(9)}`],
+      ...(Number.isFinite(Hn) ? [["גובה H", `${Hn.toFixed(4)} m`]] : []),
+    ]],
+    ["LLA · מעלות, דקות, שניות", [["רוחב", dms(g.lat, "N", "S")], ["אורך", dms(g.lon, "E", "W")]]],
+    ["LLA · מעלות ודקות עשרוניות", [["רוחב", ddm(g.lat, "N", "S")], ["אורך", ddm(g.lon, "E", "W")]]],
+    ["LLA · רדיאנים", [["רוחב", (g.lat * D2R).toFixed(12)], ["אורך", (g.lon * D2R).toFixed(12)]]],
+    ["ECEF · WGS-84", [
+      ["X", `${R.ecef[0].toFixed(4)} m`, pm(Math.sqrt(Ce[0][0]))], ["Y", `${R.ecef[1].toFixed(4)} m`, pm(Math.sqrt(Ce[1][1]))], ["Z", `${R.ecef[2].toFixed(4)} m`, pm(Math.sqrt(Ce[2][2]))],
+      ["XYZ", `${R.ecef[0].toFixed(4)}, ${R.ecef[1].toFixed(4)}, ${R.ecef[2].toFixed(4)}`],
+    ]],
+    [`UTM · אזור ${u.zone}${u.band}`, [
+      ["Easting", `${u.E.toFixed(3)} m`], ["Northing", `${u.N.toFixed(3)} m`], ["מלא", `${u.zone}${u.south ? "S" : "N"} ${u.E.toFixed(3)} ${u.N.toFixed(3)}`],
+    ]],
+    ["MGRS", [["1 m", mgrs(u, 5).replace(/ (\d{5}) (\d{5})$/, (_, a, b) => ` ${a} ${b}`)]]],
+    ...(it && inIsrael ? [["רשת ישראל החדשה · ITM", [["מזרח (E)", `${it.E.toFixed(3)} m`], ["צפון (N)", `${it.N.toFixed(3)} m`], ["זוג", `${it.E.toFixed(3)} / ${it.N.toFixed(3)}`]]]] : []),
+  ];
+  $("formats").innerHTML = groups.map(([title, rows]) => `<div class="fmt-group"><h3>${esc(title)}</h3>${rows.map(r => fmtRow(...r)).join("")}</div>`).join("") +
+    `<div class="fmt-group"><h3>במפה</h3><div class="links">
+      <a href="https://www.google.com/maps?q=${g.lat.toFixed(8)},${g.lon.toFixed(8)}" target="_blank" rel="noopener">Google Maps</a>
+      <a href="https://www.openstreetmap.org/?mlat=${g.lat.toFixed(8)}&mlon=${g.lon.toFixed(8)}#map=19/${g.lat.toFixed(6)}/${g.lon.toFixed(6)}" target="_blank" rel="noopener">OpenStreetMap</a>
+      ${inIsrael ? `<a href="https://www.govmap.gov.il/?c=${it ? it.E.toFixed(0) + "," + it.N.toFixed(0) : ""}&z=10" target="_blank" rel="noopener">GovMap</a>` : ""}
+    </div></div>`;
+
+  // Accuracy table
+  const row = (k, a, b, c) => `<tr><td>${k}</td><td class="n">${a}</td><td class="n">${b}</td><td class="n">${c}</td></tr>`;
+  $("accTable").innerHTML = `<thead><tr><th></th><th>משוערך כולל</th><th>סטטיסטי בלבד</th><th>אפוק בודד</th></tr></thead><tbody>` +
+    row("σ מזרח", fmtLen(M.sE), fmtLen(Mm.sE), fmtLen(Ms.sE)) +
+    row("σ צפון", fmtLen(M.sN), fmtLen(Mm.sN), fmtLen(Ms.sN)) +
+    row("σ גובה", fmtLen(M.sU), fmtLen(Mm.sU), fmtLen(Ms.sU)) +
+    row("אליפסה, ציר גדול", fmtLen(M.smaj), fmtLen(Mm.smaj), fmtLen(Ms.smaj)) +
+    row("אליפסה, ציר קטן", fmtLen(M.smin), fmtLen(Mm.smin), fmtLen(Ms.smin)) +
+    row("אזימוט הציר",  `${M.azimuth.toFixed(0)}°`, `${Mm.azimuth.toFixed(0)}°`, `${Ms.azimuth.toFixed(0)}°`) +
+    row("CEP50", fmtLen(M.cep50), fmtLen(Mm.cep50), fmtLen(Ms.cep50)) +
+    row("אופקי 95%", fmtLen(M.r95), fmtLen(Mm.r95), fmtLen(Ms.r95)) +
+    row("2DRMS", fmtLen(M.drms2), fmtLen(Mm.drms2), fmtLen(Ms.drms2)) +
+    row("אנכי 95%", fmtLen(M.v95), fmtLen(Mm.v95), fmtLen(Ms.v95)) +
+    row("SEP50", fmtLen(M.sep50), fmtLen(Mm.sep50), fmtLen(Ms.sep50)) + `</tbody>`;
+  $("accNote").innerHTML = `"סטטיסטי" הוא רעש הממוצע בלבד, אחרי תיקון קורלציה (τ = ${R.tau.map(t => t.toFixed(1)).join(" / ")} אפוקים ב־E/N/U). ` +
+    (o.floor ? `"כולל" מוסיף רצפה שיטתית של ${fmtLen(R.floor[0])} אופקי ו־${fmtLen(R.floor[1])} אנכי לציר. ` : `רצפה שיטתית כבויה, כך ש"כולל" שווה ל"סטטיסטי". `) +
+    (R.useRms ? `חציון pos_rms של המקלט: ${fmtLen(R.medRms)}.` : "");
+
+  // Tier table
+  const solCounts = {}; for (const r of R.valid) solCounts[r.sol] = (solCounts[r.sol] || 0) + 1;
+  const usedBySol = {}; for (const r of R.used) usedBySol[r.sol] = (usedBySol[r.sol] || 0) + 1;
+  const rejBySol = {}; for (const r of R.sel) if (r.rejected) rejBySol[r.sol] = (rejBySol[r.sol] || 0) + 1;
+  const rmsBySol = {}; for (const r of R.valid) if (r.rms > 0) (rmsBySol[r.sol] = rmsBySol[r.sol] || []).push(r.rms);
+  const sols = Object.keys(solCounts).sort((a, b) => TIERS[tierOf(Number(b))].rank - TIERS[tierOf(Number(a))].rank);
+  $("tierTable").innerHTML = `<thead><tr><th>סוג פתרון</th><th>אפוקים</th><th>בשימוש</th><th>נדחו</th><th>חציון pos_rms</th><th>חלק מהמשקל</th></tr></thead><tbody>` +
+    sols.map(s => { const sn = s === "null" ? null : Number(s); const used = usedBySol[s] || 0;
+      return `<tr class="${used ? "sel" : ""}"><td>${esc(sn == null ? "לא ידוע" : (SOL_NAMES[sn] || "קוד " + sn))}</td><td class="n">${solCounts[s]}</td><td class="n">${used}</td><td class="n">${rejBySol[s] || 0}</td><td class="n">${rmsBySol[s] ? fmtLen(median(rmsBySol[s])) : "—"}</td><td class="n">${R.share[s] ? (R.share[s] * 100).toFixed(1) + "%" : "—"}</td></tr>`; }).join("") +
+    (state.blank ? `<tr><td class="muted">No solution / שורות ריקות</td><td class="n">${state.blank}</td><td class="n">0</td><td class="n">—</td><td class="n">—</td><td class="n">—</td></tr>` : "") + `</tbody>`;
+
+  state.report = buildReport(R, g, M, Mm, u, it && inIsrael ? it : null, Hn, o);
+  drawScatter(R, Ms, M); drawSeries(R);
+}
+
+function tile(k, v, main) { return `<div class="tile${main ? " main" : ""}"><div class="k">${k}</div><div class="v">${v}</div></div>`; }
+function fmtRow(k, v, extra = "") {
+  return `<div class="fmt-row"><span class="k">${esc(k)}</span><span class="v">${esc(v)}${extra}</span><button type="button" class="copy" data-copy="${esc(v)}">העתק</button></div>`;
+}
+function fmtDuration(s) { if (s < 120) return s.toFixed(0) + " s"; if (s < 7200) return (s / 60).toFixed(1) + " min"; return (s / 3600).toFixed(2) + " h"; }
+
+function buildReport(R, g, M, Mm, u, it, Hn, o) {
+  const L = [];
+  L.push("Averaged position (WGS-84)" + (state.isSample ? " - SAMPLE DATA" : ""));
+  L.push(`Source: ${state.sources.join(", ")}`);
+  L.push(`Epochs used: ${R.used.length}, rejected: ${R.rejected}, effective N: ${R.nEff.toFixed(0)}`);
+  L.push("");
+  L.push(`Lat  ${g.lat.toFixed(9)}  (${dms(g.lat, "N", "S")})`);
+  L.push(`Lon  ${g.lon.toFixed(9)}  (${dms(g.lon, "E", "W")})`);
+  L.push(`h    ${g.h.toFixed(4)} m (ellipsoidal)` + (Number.isFinite(Hn) ? `   H ${Hn.toFixed(4)} m (N = ${o.geoidN})` : ""));
+  L.push(`ECEF X ${R.ecef[0].toFixed(4)}  Y ${R.ecef[1].toFixed(4)}  Z ${R.ecef[2].toFixed(4)} m`);
+  L.push(`UTM  ${u.zone}${u.south ? "S" : "N"}  E ${u.E.toFixed(3)}  N ${u.N.toFixed(3)}`);
+  L.push(`MGRS ${mgrs(u, 5)}`);
+  if (it) L.push(`ITM  E ${it.E.toFixed(3)}  N ${it.N.toFixed(3)}`);
+  L.push("");
+  L.push(`Accuracy (estimated, ${o.floor ? "incl. systematic floor" : "statistical only"}):`);
+  L.push(`  sigma E/N/U  ${fmtLen(M.sE)} / ${fmtLen(M.sN)} / ${fmtLen(M.sU)}`);
+  L.push(`  Horizontal 95%  ${fmtLen(M.r95)}   CEP50 ${fmtLen(M.cep50)}   2DRMS ${fmtLen(M.drms2)}`);
+  L.push(`  Vertical 95%    ${fmtLen(M.v95)}   SEP50 ${fmtLen(M.sep50)}`);
+  L.push(`  Statistical only: H95 ${fmtLen(Mm.r95)}, V95 ${fmtLen(Mm.v95)}`);
+  return L.join("\n");
+}
+
+// ---- Plots -------------------------------------------------------------
+function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function setupCanvas(id) {
+  const cv = $(id), dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = Number(cv.getAttribute("height"));
+  cv.style.height = Math.min(h, Math.max(260, w * 0.85)) + "px";
+  const hh = cv.clientHeight;
+  cv.width = Math.round(w * dpr); cv.height = Math.round(hh * dpr);
+  const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.direction = "ltr";
+  ctx.clearRect(0, 0, w, hh);
+  return { ctx, w, h: hh };
+}
+function clearCanvas(id) { setupCanvas(id); }
+function niceStep(range, target = 5) {
+  const raw = range / target, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+  return (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * p;
+}
+function axisLabel(v, step) {
+  const a = Math.abs(step);
+  if (a < 0.01) return (v * 1000).toFixed(a < 0.001 ? 1 : 0) + "mm";
+  if (a < 1) return (v * 100).toFixed(a < 0.1 ? 1 : 0) + "cm";
+  return v.toFixed(a < 10 ? 0 : 0) + "m";
+}
+function drawScatter(R, Ms, Mt) {
+  const { ctx, w, h } = setupCanvas("scatter");
+  const pad = { l: 46, r: 12, t: 12, b: 28 };
+  const pts = R.sel.map(r => ({ e: r.enu[0] - R.mean[0], n: r.enu[1] - R.mean[1], r }));
+  const usedPts = pts.filter(p => !p.r.rejected);
+  const ext = Math.max(...usedPts.map(p => Math.max(Math.abs(p.e), Math.abs(p.n))), Ms.smaj * 2.6, 1e-4) * 1.12;
+  const pw = w - pad.l - pad.r, ph = h - pad.t - pad.b, s = Math.min(pw, ph) / (2 * ext);
+  const cx = pad.l + pw / 2, cy = pad.t + ph / 2;
+  const X = (e) => cx + e * s, Y = (n) => cy - n * s;
+  const step = niceStep(2 * ext, 6);
+  ctx.font = `11px ${css("--font-mono")}`; ctx.textBaseline = "middle";
+  ctx.strokeStyle = css("--hairline"); ctx.fillStyle = css("--label-2"); ctx.lineWidth = 1;
+  const exX = (pw / 2) / s, exY = (ph / 2) / s;
+  for (let v = -Math.floor(exX / step) * step; v <= exX + 1e-12; v += step) {
+    ctx.beginPath(); ctx.moveTo(X(v), pad.t); ctx.lineTo(X(v), pad.t + ph); ctx.stroke();
+    ctx.textAlign = "center"; ctx.fillText(axisLabel(v, step), X(v), h - 12);
+  }
+  for (let v = -Math.floor(exY / step) * step; v <= exY + 1e-12; v += step) {
+    ctx.beginPath(); ctx.moveTo(pad.l, Y(v)); ctx.lineTo(pad.l + pw, Y(v)); ctx.stroke();
+    ctx.textAlign = "right"; ctx.fillText(axisLabel(v, step), pad.l - 6, Y(v));
+  }
+  ctx.fillStyle = css("--label-2"); ctx.textAlign = "left"; ctx.fillText("N ↑", pad.l + 6, pad.t + 10); ctx.textAlign = "right"; ctx.fillText("E →", pad.l + pw - 4, cy - 10);
+  const maxW = Math.max(...usedPts.map(p => p.r.wn));
+  const pc = css("--plot-point"), wk = css("--plot-weak"), al = css("--alert");
+  for (const p of usedPts) {
+    const rad = 1.4 + 2.6 * Math.sqrt(p.r.wn / maxW);
+    ctx.fillStyle = p.r.huber < 1 ? wk : pc; ctx.globalAlpha = 0.75;
+    ctx.beginPath(); ctx.arc(X(p.e), Y(p.n), rad, 0, 2 * Math.PI); ctx.fill();
+  }
+  ctx.globalAlpha = 1; ctx.strokeStyle = al; ctx.lineWidth = 1.3;
+  for (const p of pts.filter(p => p.r.rejected)) {
+    const xe = Math.max(pad.l + 4, Math.min(pad.l + pw - 4, X(p.e))), yn = Math.max(pad.t + 4, Math.min(pad.t + ph - 4, Y(p.n)));
+    ctx.beginPath(); ctx.arc(xe, yn, 3.2, 0, 2 * Math.PI); ctx.stroke();
+  }
+  const ell = (M, color, dash, k) => {
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(-M.theta);
+    ctx.strokeStyle = color; ctx.lineWidth = 1.6; ctx.setLineDash(dash);
+    ctx.beginPath(); ctx.ellipse(0, 0, Math.max(M.smaj * k * s, 1.5), Math.max(M.smin * k * s, 1.5), 0, 0, 2 * Math.PI); ctx.stroke(); ctx.restore();
+  };
+  const k95 = 2.4477;
+  ell(Ms, css("--label-2"), [5, 4], k95);
+  ell(Mt, css("--accent"), [], k95);
+  ctx.strokeStyle = css("--label"); ctx.lineWidth = 1.2; ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(cx - 7, cy); ctx.lineTo(cx + 7, cy); ctx.moveTo(cx, cy - 7); ctx.lineTo(cx, cy + 7); ctx.stroke();
+}
+function drawSeries(R) {
+  const { ctx, w, h } = setupCanvas("series");
+  const pad = { l: 50, r: 10, t: 18, b: 26 }, gap = 26;
+  const all = R.valid;
+  const hasT = all.every(r => Number.isFinite(r.time));
+  const t0 = hasT ? Math.min(...all.map(r => r.time)) : 0;
+  const xv = all.map((r, i) => hasT ? (r.time - t0) / 1000 : i);
+  const xmax = Math.max(...xv, 1);
+  const pw = w - pad.l - pad.r, ph = (h - pad.t - pad.b - gap) / 2;
+  const X = (x) => pad.l + (x / xmax) * pw;
+  const hor = all.map(r => Math.hypot(r.enu[0] - R.mean[0], r.enu[1] - R.mean[1]));
+  const ver = all.map(r => r.enu[2] - R.mean[2]);
+  const usedIdx = all.map(r => r.isUsed === true);
+  const robust = (arr, mask) => { const a = arr.filter((v, i) => mask[i]).map(Math.abs).sort((p, q) => p - q); return a[Math.floor(a.length * 0.995)] || a[a.length - 1] || 1; };
+  const hMax = Math.max(robust(hor, usedIdx) * 1.3, 1e-4);
+  const vMax = Math.max(robust(ver, usedIdx) * 1.3, 1e-4);
+  const panels = [
+    { title: "אופקי מהממוצע", y0: pad.t, vals: hor, lo: 0, hi: hMax, rms: true },
+    { title: "גובה מהממוצע", y0: pad.t + ph + gap, vals: ver, lo: -vMax, hi: vMax },
+  ];
+  ctx.font = `11px ${css("--font-mono")}`;
+  for (const P of panels) {
+    const Y = (v) => P.y0 + ph - ((Math.max(P.lo, Math.min(P.hi, v)) - P.lo) / (P.hi - P.lo)) * ph;
+    const step = niceStep(P.hi - P.lo, 3);
+    ctx.strokeStyle = css("--hairline"); ctx.fillStyle = css("--label-2"); ctx.lineWidth = 1; ctx.textBaseline = "middle"; ctx.textAlign = "right";
+    for (let v = Math.ceil(P.lo / step) * step; v <= P.hi + 1e-12; v += step) { ctx.beginPath(); ctx.moveTo(pad.l, Y(v)); ctx.lineTo(pad.l + pw, Y(v)); ctx.stroke(); ctx.fillText(axisLabel(v, step), pad.l - 6, Y(v)); }
+    ctx.textAlign = "right"; ctx.font = `600 12px ${css("--font-body")}`; ctx.fillStyle = css("--label"); ctx.fillText(P.title, pad.l + pw, P.y0 - 8); ctx.font = `11px ${css("--font-mono")}`;
+    if (P.rms && R.useRms) {
+      ctx.strokeStyle = css("--warn"); ctx.lineWidth = 1.2; ctx.beginPath(); let started = false;
+      all.forEach((r, i) => { if (!(r.rms > 0)) { started = false; return; } const x = X(xv[i]), y = Y(r.rms); if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y); }); ctx.stroke();
+    }
+    const pc = css("--plot-point"), l3 = css("--label-3"), al = css("--alert");
+    all.forEach((r, i) => {
+      const x = X(xv[i]), y = Y(P.vals[i]);
+      if (r.rejected) { ctx.strokeStyle = al; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.arc(x, y, 2.6, 0, 2 * Math.PI); ctx.stroke(); }
+      else { ctx.fillStyle = usedIdx[i] ? pc : l3; ctx.beginPath(); ctx.arc(x, y, 1.6, 0, 2 * Math.PI); ctx.fill(); }
+    });
+  }
+  ctx.fillStyle = css("--label-2"); ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+  const xs = niceStep(xmax, 5);
+  for (let v = 0; v <= xmax + 1e-9; v += xs) ctx.fillText(hasT ? fmtDuration(v) : String(Math.round(v)), X(v), h - 8);
+}
+
+// ---- Wiring ----------------------------------------------------------
+async function readFiles(list) {
+  const files = await Promise.all([...list].map(f => f.text().then(text => ({ name: f.name, text }))));
+  if (files.length) loadTexts(files, false);
+}
+$("file").addEventListener("change", (e) => readFiles(e.target.files));
+$("fileBtn").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("file").click(); } });
+$("sampleBtn").addEventListener("click", () => loadTexts([{ name: "sample_JAVAD_20261021_091400.csv", text: makeSample() }], true));
+const drop = $("drop");
+["dragenter", "dragover"].forEach(ev => document.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(ev => document.addEventListener(ev, (e) => { e.preventDefault(); if (ev === "drop" || e.target === document.documentElement) drop.classList.remove("over"); }));
+document.addEventListener("drop", (e) => { if (e.dataTransfer && e.dataTransfer.files.length) readFiles(e.dataTransfer.files); });
+document.addEventListener("paste", (e) => { const t = e.clipboardData && e.clipboardData.getData("text"); if (t && /lat_deg|ecef_x_m/.test(t)) loadTexts([{ name: "הודבק מהלוח", text: t }], false); });
+["optFilter", "optWeight", "optReject", "optCorr", "optFloor", "optGeoid"].forEach(id => $(id).addEventListener(id === "optGeoid" ? "input" : "change", run));
+async function copyText(text, btn) {
+  try { await navigator.clipboard.writeText(text); }
+  catch (e) { const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); } catch (_) {} ta.remove(); }
+  if (btn) { const old = btn.textContent; btn.textContent = "הועתק"; btn.classList.add("done"); setTimeout(() => { btn.textContent = old; btn.classList.remove("done"); }, 1200); }
+}
+document.addEventListener("click", (e) => { const b = e.target.closest(".copy"); if (b) copyText(b.dataset.copy, b); });
+$("copyReport").addEventListener("click", (e) => copyText(state.report, e.currentTarget));
+let rz; window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => state.result && (drawScatter(state.result, metrics(state.result.Cs), metrics(state.result.Ct)), drawSeries(state.result)), 120); });
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => run());
+new MutationObserver(() => run()).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+loadTexts([{ name: "sample_JAVAD_20261021_091400.csv", text: makeSample() }], true);
+</script>
+
+</body>
+</html>

@@ -135,3 +135,30 @@ def test_the_point_is_where_the_earth_is():
     x, y, z = geodetic_to_ecef(32.081234567, 34.780987654, 42.8137)
     radius = math.sqrt(x * x + y * y + z * z)
     assert WGS84_SEMI_MINOR_AXIS_M < radius < WGS84_SEMI_MAJOR_AXIS_M + 1000.0
+
+
+@pytest.mark.parametrize(
+    ("lat", "lon", "h"),
+    [(32.0853, 34.7818, 50.0), (89.9999, 10.0, 100.0), (-90.0, 0.0, -20.0), (-45.5, -120.25, 8848.0), (0.0, 179.9, 0.0)],
+)
+def test_ecef_to_geodetic_inverts_the_forward_transform(lat, lon, h):
+    from greis.geodesy import ecef_to_geodetic
+
+    back = ecef_to_geodetic(*geodetic_to_ecef(lat, lon, h))
+    assert back[0] == pytest.approx(lat, abs=1e-11)
+    assert back[1] == pytest.approx(lon, abs=1e-11)
+    assert back[2] == pytest.approx(h, abs=1e-6)
+
+
+def test_enu_rotation_is_orthonormal_and_up_is_the_normal():
+    from greis.geodesy import enu_rotation
+
+    r = enu_rotation(32.0, 35.0)
+    for i in range(3):
+        for j in range(3):
+            dot = sum(r[i][k] * r[j][k] for k in range(3))
+            assert dot == pytest.approx(1.0 if i == j else 0.0, abs=1e-15)
+    x, y, z = geodetic_to_ecef(32.0, 35.0, 0.0)
+    x2, y2, z2 = geodetic_to_ecef(32.0, 35.0, 1.0)
+    up = [x2 - x, y2 - y, z2 - z]
+    assert sum(r[2][k] * up[k] for k in range(3)) == pytest.approx(1.0, abs=1e-9)

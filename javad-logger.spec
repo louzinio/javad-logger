@@ -4,7 +4,9 @@
 #     pyinstaller javad-logger.spec
 #
 # leaves the application in `dist/Javad Logger/`, with `Javad Logger.exe`
-# at the top of it. That is a folder rather than a single file, and the
+# at the top of it and `Position Averager.exe` beside it. The two share one
+# copy of Qt: a second folder would cost another hundred megabytes for a
+# window that imports nothing the logger does not already carry. That is a folder rather than a single file, and the
 # choice matters in two places.
 #
 # A one-file build is one executable, which sounds tidier, but every start
@@ -23,6 +25,30 @@
 # answer but the bundle around it is not.
 
 APPLICATION_NAME = "Javad Logger"
+AVERAGER_NAME = "Position Averager"
+
+# None of these are imported by the application. They are named because
+# they are commonly installed in the same environment and PyInstaller
+# will happily pull a hundred megabytes of any of them into the build
+# if something it scans mentions one.
+EXCLUDES = [
+    "tkinter",
+    "pytest",
+    "numpy",
+    "PIL",
+    "matplotlib",
+    "scipy",
+    "pandas",
+    "IPython",
+    "PySide6.QtWebEngineCore",
+    "PySide6.QtWebEngineWidgets",
+    "PySide6.QtQuick",
+    "PySide6.QtQml",
+    "PySide6.Qt3DCore",
+    "PySide6.QtMultimedia",
+    "PySide6.QtCharts",
+    "PySide6.QtDataVisualization",
+]
 
 a = Analysis(
     ["main.py"],
@@ -38,33 +64,29 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    # None of these are imported by the application. They are named because
-    # they are commonly installed in the same environment and PyInstaller
-    # will happily pull a hundred megabytes of any of them into the build
-    # if something it scans mentions one.
-    excludes=[
-        "tkinter",
-        "pytest",
-        "numpy",
-        "PIL",
-        "matplotlib",
-        "scipy",
-        "pandas",
-        "IPython",
-        "PySide6.QtWebEngineCore",
-        "PySide6.QtWebEngineWidgets",
-        "PySide6.QtQuick",
-        "PySide6.QtQml",
-        "PySide6.Qt3DCore",
-        "PySide6.QtMultimedia",
-        "PySide6.QtCharts",
-        "PySide6.QtDataVisualization",
-    ],
+    excludes=EXCLUDES,
+    noarchive=False,
+    optimize=0,
+)
+
+# The averager is analysed on its own, so that its executable starts its
+# own script, and collected into the same folder below.
+averager = Analysis(
+    ["averager.py"],
+    pathex=[],
+    binaries=[],
+    datas=[("assets/javad-logger.ico", "assets")],
+    hiddenimports=[],
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=EXCLUDES,
     noarchive=False,
     optimize=0,
 )
 
 pyz = PYZ(a.pure)
+averager_pyz = PYZ(averager.pure)
 
 exe = EXE(
     pyz,
@@ -92,10 +114,32 @@ exe = EXE(
     icon="assets/javad-logger.ico",
 )
 
+averager_exe = EXE(
+    averager_pyz,
+    averager.scripts,
+    [],
+    exclude_binaries=True,
+    name=AVERAGER_NAME,
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=False,
+    console=False,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+    icon="assets/javad-logger.ico",
+)
+
 coll = COLLECT(
     exe,
     a.binaries,
     a.datas,
+    averager_exe,
+    averager.binaries,
+    averager.datas,
     strip=False,
     upx=False,
     upx_exclude=[],

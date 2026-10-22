@@ -84,3 +84,58 @@ def geodetic_to_ecef(
     # the pole is the 21 km between the semi-major and semi-minor axes.
     z = (radius * (1.0 - WGS84_ECCENTRICITY_SQUARED) + height_m) * sin_latitude
     return x, y, z
+
+
+def ecef_to_geodetic(x: float, y: float, z: float) -> tuple[float, float, float]:
+    """``(latitude_deg, longitude_deg, height_m)`` from WGS-84 ECEF metres.
+
+    The inverse has no closed form that is both exact and simple, so this
+    iterates on the latitude. Each pass recomputes the prime vertical
+    radius from the latitude of the last one, and from any start the
+    change falls below 1e-14 rad - a tenth of a nanometre on the ground -
+    within five or six passes. The loop is capped rather than trusted.
+
+    The height is taken along the normal from whichever axis is better
+    conditioned: through the cosine away from the poles and through the
+    sine near them, where dividing by a cosine close to zero would turn a
+    rounding error in ``p`` into metres. 1.4 rad is about 80 degrees.
+    """
+    longitude = math.atan2(y, x)
+    p = math.hypot(x, y)
+    e2 = WGS84_ECCENTRICITY_SQUARED
+
+    # tan(lat) = (z + e² N sin(lat)) / p, written with atan2 so that it
+    # never divides by p and stays well behaved at the poles as well.
+    latitude = math.atan2(z, p * (1.0 - e2))
+    for _ in range(10):
+        following = math.atan2(z + e2 * prime_vertical_radius(latitude) * math.sin(latitude), p)
+        converged = abs(following - latitude) < 1e-14
+        latitude = following
+        if converged:
+            break
+
+    radius = prime_vertical_radius(latitude)
+    if abs(latitude) < 1.4:
+        height = p / math.cos(latitude) - radius
+    else:
+        height = z / math.sin(latitude) - radius * (1.0 - e2)
+    return math.degrees(latitude), math.degrees(longitude), height
+
+
+def enu_rotation(latitude_deg: float, longitude_deg: float) -> tuple[tuple[float, float, float], ...]:
+    """The rows of the matrix taking an ECEF difference to East, North, Up.
+
+    Local East/North/Up is the frame an averaged position is reasoned about
+    in: a scatter is wider east-west than north-south, or worse in height
+    than across, and none of that is visible in X, Y and Z, which tilt with
+    the latitude. The matrix is orthonormal, so its transpose takes ENU
+    back to ECEF.
+    """
+    phi = math.radians(latitude_deg)
+    lam = math.radians(longitude_deg)
+    sp, cp, sl, cl = math.sin(phi), math.cos(phi), math.sin(lam), math.cos(lam)
+    return (
+        (-sl, cl, 0.0),
+        (-sp * cl, -sp * sl, cp),
+        (cp * cl, cp * sl, sp),
+    )
