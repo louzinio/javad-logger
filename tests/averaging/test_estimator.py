@@ -168,3 +168,35 @@ def test_ellipse_azimuth_is_clockwise_from_north():
     assert north_south.azimuth_deg == pytest.approx(0.0, abs=1e-9)
     east_west = Accuracy.from_covariance([[9.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0]])
     assert east_west.azimuth_deg == pytest.approx(90.0)
+
+
+@pytest.mark.parametrize(
+    ("dof", "exact"),
+    [(1, 12.7062), (2, 4.3027), (5, 2.5706), (6, 2.4469), (10, 2.2281), (30, 2.0423), (1000, 1.9623)],
+)
+def test_student_t_quantile(dof, exact):
+    from averaging.estimator import student_t_975
+
+    assert student_t_975(dof) == pytest.approx(exact, abs=1e-3)
+
+
+def test_plenty_of_data_needs_no_small_sample_widening():
+    from averaging.estimator import small_sample_factor
+
+    assert small_sample_factor(5000) == pytest.approx(1.0, abs=2e-3)
+    assert small_sample_factor(6) > 1.5
+
+
+def test_the_95_percent_figure_covers_95_percent_with_few_effective_epochs():
+    """The case the small-sample correction exists for: a strongly
+    correlated recording only a few correlation times long. Before it, the
+    stated 95% radius held about three times in four."""
+    rng = random.Random(2026)
+    hits = 0
+    trials = 80
+    for trial in range(trials):
+        recording = _recording([(300, 1, 0.8, 1.5, 0.97, 1.6, (0, 0, 0))], seed=rng.randrange(1 << 30))
+        result = average(recording, Settings(systematic_floor=False))
+        error = _error_enu(result)
+        hits += math.hypot(error[0], error[1]) <= result.statistical.horizontal95
+    assert hits / trials >= 0.85

@@ -351,6 +351,9 @@ class Result:
     single_epoch: Accuracy
     total_covariance: Matrix
     tau: tuple[float, float, float]
+    small_sample_factor: tuple[float, float, float]
+    """How much each axis's variance was widened for having few effective
+    epochs; 1.0 when there were plenty."""
     effective_epochs: float
     floor_m: tuple[float, float]
     scatter_ratio: float | None
@@ -395,7 +398,8 @@ def integrated_autocorrelation_time(series: Sequence[float]) -> float:
     initial monotone sequence takes the lags in pairs and stops at the
     first pair that is not positive, or not smaller than the pair before.
     Sokal's window stops once the lag is five times the τ found so far,
-    which is long enough for a real correlation to have died away.
+    which is long enough for a real correlation to have died away. On a
+    short series the result is checked against an AR(1) fit, below.
     Capped between 1 and the length of the series.
     """
     n = len(series)
@@ -418,7 +422,54 @@ def integrated_autocorrelation_time(series: Sequence[float]) -> float:
             break
         tau += 2.0 * pair
         previous = pair
+
+    # The sum above is biased low when the series is only a few τ long:
+    # subtracting the sample mean takes the slow part of the correlation
+    # with it. The lag-one correlation fitted as an AR(1) process, with
+    # Marriott and Pope's correction for the same bias, holds up much
+    # better there, so the larger of the two is used. On a long series
+    # they agree and nothing changes.
+    rho = sum(d[i] * d[i + 1] for i in range(n - 1)) / n / c0
+    rho = min(rho + (1.0 + 4.0 * rho) / n, 0.9999)
+    if rho > 0:
+        tau = max(tau, (1.0 + rho) / (1.0 - rho))
     return min(max(tau, 1.0), float(n))
+
+
+_T975_SMALL = (12.706, 4.303, 3.182, 2.776, 2.571)
+"""Student's t at 97.5% for 1 to 5 degrees of freedom, where the series
+below is not yet accurate."""
+
+
+def student_t_975(dof: float) -> float:
+    """The two-sided 95% quantile of Student's t.
+
+    Exact from the table up to five degrees of freedom; beyond that the
+    Cornish-Fisher expansion about the normal quantile, which is within
+    0.001 of the exact value from six upwards. Fractional degrees of
+    freedom are allowed, because N/τ is rarely a whole number.
+    """
+    dof = max(dof, 1.0)
+    if dof <= 5.0:
+        low = int(math.floor(dof))
+        if low >= 5:
+            return _T975_SMALL[4]
+        fraction = dof - low
+        return _T975_SMALL[low - 1] + fraction * (_T975_SMALL[low] - _T975_SMALL[low - 1])
+    z = 1.959963984540054
+    return (
+        z
+        + (z**3 + z) / (4 * dof)
+        + (5 * z**5 + 16 * z**3 + 3 * z) / (96 * dof**2)
+        + (3 * z**7 + 19 * z**5 + 17 * z**3 - 15 * z) / (384 * dof**3)
+        + (79 * z**9 + 776 * z**7 + 1482 * z**5 - 1920 * z**3 - 945 * z) / (92160 * dof**4)
+    )
+
+
+def small_sample_factor(effective_epochs: float) -> float:
+    """``(t / z)²`` for N/τ - 1 degrees of freedom: the factor on a variance
+    that turns a normal 95% interval into a Student one."""
+    return (student_t_975(effective_epochs - 1.0) / 1.959963984540054) ** 2
 
 
 def _choose_tier(fixes: Sequence[Fix], settings: Settings) -> tuple[str, set[str]]:
@@ -526,9 +577,14 @@ def average(recording: Recording, settings: Settings = Settings()) -> Result:
         )
     else:
         tau = (1.0, 1.0, 1.0)
+    # A variance estimated from N/τ effective epochs is itself uncertain,
+    # and with only a handful of them it is usually too small. Student's t
+    # with N/τ - 1 degrees of freedom widens it by exactly the amount that
+    # keeps a 95% interval at 95%; with plenty of data the factor is 1.
+    small_sample = tuple(small_sample_factor(n / t) for t in tau)
     for a in range(3):
         for b in range(3):
-            of_mean[a][b] *= math.sqrt(tau[a] * tau[b])
+            of_mean[a][b] *= math.sqrt(tau[a] * tau[b] * small_sample[a] * small_sample[b])
 
     floor_h2 = floor_v2 = 0.0
     for fix in used:
@@ -559,6 +615,7 @@ def average(recording: Recording, settings: Settings = Settings()) -> Result:
         single_epoch=Accuracy.from_covariance(one_epoch),
         total_covariance=total,
         tau=tau,  # type: ignore[arg-type]
+        small_sample_factor=small_sample,  # type: ignore[arg-type]
         effective_epochs=n / (sum(tau) / 3.0),
         floor_m=(math.sqrt(floor_h2), math.sqrt(floor_v2)),
         scatter_ratio=scale if weighted else None,

@@ -290,7 +290,8 @@ details.method code { font-family: var(--font-mono); font-size: 13px; background
         <li>משקל לכל אפוק: <code>w = 1/σ²</code>, כש־σ הוא <code>pos_rms_m</code> של המקלט, עם רצפה של 20% מהחציון ולפחות 1 מ״מ.</li>
         <li>ממוצע חסין (IRLS עם פונקציית Huber): מחשבים לכל אפוק את המרחק המנורמל <code>|r|/σ</code>, מכיילים אותו לפי החציון כדי לקבל את קנה המידה האמיתי של הרעש, מורידים משקל לאפוקים רחוקים ודוחים אפוקים מעבר לסף. חוזרים עד התכנסות.</li>
         <li>אי־ודאות הממוצע מחושבת מהפיזור בפועל (sandwich), כך שהיא נכונה גם אם ה־RMS של המקלט אופטימי או פסימי מדי.</li>
-        <li>תיקון קורלציה: לכל ציר מחושבת פונקציית האוטוקורלציה של השאריות, וממנה זמן הקורלציה האינטגרלי τ. מספר האפוקים האפקטיבי הוא <code>N/τ</code>, והשונות מוכפלת ב־τ.</li>
+        <li>תיקון קורלציה: לכל ציר מחושבת פונקציית האוטוקורלציה של השאריות, וממנה זמן הקורלציה האינטגרלי τ. בהקלטה קצרה τ נבדק גם מול מודל AR(1), והגדול מהשניים קובע. מספר האפוקים האפקטיבי הוא <code>N/τ</code>, והשונות מוכפלת ב־τ.</li>
+        <li>תיקון למעט נתונים: כשיש מעט אפוקים אפקטיביים, גם הערכת השונות עצמה לא ודאית. השונות מורחבת לפי התפלגות Student-t עם <code>N/τ − 1</code> דרגות חופש, כך שרדיוס 95% נשאר 95%. עם הרבה נתונים הגורם הוא 1.</li>
         <li>רצפה שיטתית (σ לציר, ערכים טיפוסיים): RTK Fixed 8 מ״מ אופקי / 15 מ״מ אנכי, PPP Fixed 2 / 4 ס״מ, PPP Float 8 / 15 ס״מ, RTK Float 10 / 20 ס״מ, Differential 30 / 60 ס״מ, SBAS 40 / 70 ס״מ, Standalone 0.8 / 1.5 מ׳. ב־RTK הדיוק המוחלט מוגבל גם בדיוק של קואורדינטת הבסיס.</li>
         <li>מדדי הדיוק: σ לכל ציר, אליפסת שגיאה אופקית, CEP50 ‏(≈0.589·(σE+σN)), רדיוס 95% אופקי, 2DRMS, אנכי 95% ‏(1.96·σU) ו־SEP50.</li>
         <li>הגובה בקובץ הוא גובה אליפסואידי (h). UTM מחושב על WGS-84 בטור Krüger. רשת ישראל החדשה (ITM) מחושבת אחרי טרנספורמציית Helmert משבעה פרמטרים WGS-84 → Israel 1993 (EPSG, דיוק טרנספורמציה כ־0.5 מ׳).</li>
@@ -476,8 +477,23 @@ function integratedAutocorr(series) {
     if (pair <= 0) break;
     tau += 2 * pair; previous = pair;
   }
+  // Short series bias tau low; an AR(1) fit with Marriott-Pope correction holds up better.
+  let c1 = 0; for (let i = 0; i + 1 < n; i++) c1 += d[i] * d[i + 1];
+  let rho = c1 / n / c0; rho = Math.min(rho + (1 + 4 * rho) / n, 0.9999);
+  if (rho > 0) tau = Math.max(tau, (1 + rho) / (1 - rho));
   return Math.min(Math.max(tau, 1), n);
 }
+
+function studentT975(dof) {
+  dof = Math.max(dof, 1);
+  const T = [12.706, 4.303, 3.182, 2.776, 2.571];
+  if (dof <= 5) { const lo = Math.floor(dof); return lo >= 5 ? T[4] : T[lo - 1] + (dof - lo) * (T[lo] - T[lo - 1]); }
+  const z = 1.959963984540054, v = dof;
+  return z + (z ** 3 + z) / (4 * v) + (5 * z ** 5 + 16 * z ** 3 + 3 * z) / (96 * v ** 2)
+    + (3 * z ** 7 + 19 * z ** 5 + 17 * z ** 3 - 15 * z) / (384 * v ** 3)
+    + (79 * z ** 9 + 776 * z ** 7 + 1482 * z ** 5 - 1920 * z ** 3 - 945 * z) / (92160 * v ** 4);
+}
+const smallSampleFactor = (nEff) => (studentT975(nEff - 1) / 1.959963984540054) ** 2;
 
 function analyze(rows, opt) {
   const valid = rows.filter(r => r.sol !== 0 && r.sol !== 6);
@@ -534,7 +550,9 @@ function analyze(rows, opt) {
   // Single-epoch scatter is for a "typical" epoch; Cs above is the weighted covariance.
 
   const tau = [0, 1, 2].map(j => opt.corr ? integratedAutocorr(used.map((r, i) => res[i][j] * Math.sqrt(r.w))) : 1);
-  for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) Cm[a][b] *= Math.sqrt(tau[a] * tau[b]);
+  // Few effective epochs: widen by Student's t so a 95% interval stays 95%.
+  const ss = tau.map(t => smallSampleFactor(n / t));
+  for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) Cm[a][b] *= Math.sqrt(tau[a] * tau[b] * ss[a] * ss[b]);
 
   // Systematic floor, mixed by each solution type's share of the weight.
   let fH2 = 0, fU2 = 0; const share = {};
@@ -548,7 +566,7 @@ function analyze(rows, opt) {
   return {
     ecef, geo, mean, ref, basis: B, valid, sel, used, tierCount, selectedTier: opt.filter === "auto" ? opt._exact : opt.filter,
     rejected: sel.length - used.length, downweighted: used.filter(r => r.huber < 1).length,
-    Cm, Ct, Cs, tau, nEff: n / ((tau[0] + tau[1] + tau[2]) / 3), floor: [Math.sqrt(fH2), Math.sqrt(fU2)],
+    Cm, Ct, Cs, tau, ss, nEff: n / ((tau[0] + tau[1] + tau[2]) / 3), floor: [Math.sqrt(fH2), Math.sqrt(fU2)],
     scale: useRms ? scale : null, useRms, medRms, iters, share,
     span: (() => { const ts = used.map(r => r.time).filter(Number.isFinite); return ts.length ? (Math.max(...ts) - Math.min(...ts)) / 1000 : NaN; })(),
   };
@@ -731,6 +749,7 @@ function render(R, o) {
     row("אנכי 95%", fmtLen(M.v95), fmtLen(Mm.v95), fmtLen(Ms.v95)) +
     row("SEP50", fmtLen(M.sep50), fmtLen(Mm.sep50), fmtLen(Ms.sep50)) + `</tbody>`;
   $("accNote").innerHTML = `"סטטיסטי" הוא רעש הממוצע בלבד, אחרי תיקון קורלציה (τ = ${R.tau.map(t => t.toFixed(1)).join(" / ")} אפוקים ב־E/N/U). ` +
+    (Math.max(...R.ss) > 1.05 ? `מעט אפוקים אפקטיביים, אז השונות הורחבה פי ${Math.max(...R.ss).toFixed(2)} (התפלגות Student-t). ` : "") +
     (o.floor ? `"כולל" מוסיף רצפה שיטתית של ${fmtLen(R.floor[0])} אופקי ו־${fmtLen(R.floor[1])} אנכי לציר. ` : `רצפה שיטתית כבויה, כך ש"כולל" שווה ל"סטטיסטי". `) +
     (R.useRms ? `חציון pos_rms של המקלט: ${fmtLen(R.medRms)}.` : "");
 

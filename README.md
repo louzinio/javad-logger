@@ -12,7 +12,7 @@
 
 ![Python](https://img.shields.io/badge/Python-3.11%2B-informational?style=flat-square)
 ![Swift](https://img.shields.io/badge/Swift-6-informational?style=flat-square)
-![tests](https://img.shields.io/badge/tests-276%20%2B%2050-85c446?style=flat-square)
+![tests](https://img.shields.io/badge/tests-285%20%2B%2050-85c446?style=flat-square)
 
 <img src="assets/desktop.png" width="820" alt="חלון האפליקציה: מקלט, סימון הודעות, וערכים חיים">
 
@@ -342,7 +342,8 @@ python averager.py [recording.csv ...]
   הצהיר.
 - **אי-ודאות:** מהפיזור בפועל (sandwich), מוכפלת בזמן הקורלציה האינטגרלי
   τ של כל ציר. אפוקים צמודים חולקים multipath ואטמוספרה, ובלי התיקון
-  הדיוק של הממוצע נראה טוב פי 3–5 ממה שהוא.
+  הדיוק של הממוצע נראה טוב פי 3–5 ממה שהוא. כשיש מעט אפוקים אפקטיביים
+  השונות מורחבת גם לפי התפלגות Student-t, כך שרדיוס 95% נשאר 95%.
 - **רצפה שיטתית:** ממוצע לא מוריד הטיה. אפשר להוסיף ערך טיפוסי לסוג
   הפתרון (למשל RTK Fixed: 8 מ"מ אופקי, 15 מ"מ אנכי לציר). זו הערכה
   מקובלת, לא מדידה, ולכן היא מוצגת בנפרד מהחלק הסטטיסטי.

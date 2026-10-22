@@ -523,6 +523,9 @@ class AveragerWindow(QMainWindow):
             "Statistical is the noise of the mean alone, after correcting for time correlation "
             f"(τ = {result.tau[0]:.1f} / {result.tau[1]:.1f} / {result.tau[2]:.1f} epochs in E/N/U). "
         )
+        widening = max(result.small_sample_factor)
+        if widening > 1.05:
+            note += f"Few effective epochs, so the variance was widened ×{widening:.2f} (Student's t). "
         if self._floor.isChecked():
             note += (
                 f"Estimated adds a typical systematic floor of {format_length(result.floor_m[0])} horizontal "
