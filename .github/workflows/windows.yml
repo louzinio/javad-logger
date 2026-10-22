@@ -11,11 +11,17 @@ name: Windows
 on:
   push:
     branches: ["**"]
+    # A v* tag builds the same folder and publishes it as a release, with
+    # the notes from .github/release-notes/<tag>.md.
+    tags: ["v*"]
   workflow_dispatch:
 
 concurrency:
   group: windows-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -63,3 +69,17 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 30
+
+      - name: Zip for the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: Compress-Archive -Path "dist/Javad Logger" -DestinationPath "Javad-Logger-$env:VERSION-windows.zip"
+
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Javad Logger ${{ env.VERSION }}
+          body_path: .github/release-notes/${{ github.ref_name }}.md
+          files: Javad-Logger-${{ env.VERSION }}-windows.zip
+          fail_on_unmatched_files: true
