@@ -12,9 +12,16 @@ on:
   push:
     branches: ["**"]
     # A v* tag builds the same folder and publishes it as a release, with
-    # the notes from .github/release-notes/<tag>.md.
+    # the notes from .github/release-notes/v<version>.md.
     tags: ["v*"]
+  # Run by hand with "release" ticked to do the same without pushing a tag
+  # first: the release step then creates v<version> on the commit it built.
   workflow_dispatch:
+    inputs:
+      release:
+        description: Publish this build as release v<version>
+        type: boolean
+        default: false
 
 concurrency:
   group: windows-${{ github.ref }}
@@ -71,15 +78,17 @@ jobs:
           retention-days: 30
 
       - name: Zip for the release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.release
         shell: pwsh
         run: Compress-Archive -Path "dist/Javad Logger" -DestinationPath "Javad-Logger-$env:VERSION-windows.zip"
 
       - name: Publish the release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ env.VERSION }}
+          target_commitish: ${{ github.sha }}
           name: Javad Logger ${{ env.VERSION }}
-          body_path: .github/release-notes/${{ github.ref_name }}.md
+          body_path: .github/release-notes/v${{ env.VERSION }}.md
           files: Javad-Logger-${{ env.VERSION }}-windows.zip
           fail_on_unmatched_files: true
